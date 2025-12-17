@@ -75,7 +75,7 @@ The application will be available at `http://localhost:5173`
 
 ### 6. Create Admin User
 
-To access the admin dashboard, you need to create an admin user. See `ADMIN_SETUP.md` for detailed instructions.
+To access the admin dashboard, you need to create an admin user.
 
 Quick method:
 1. Go to Supabase Dashboard → Authentication → Users
@@ -109,7 +109,7 @@ Molkhas/
 │   └── index.css          # Global styles
 ├── index.html             # HTML template (RTL + Arabic)
 ├── README.md              # Project documentation
-├── ADMIN_SETUP.md         # Admin user setup guide
+├── SETUP.md               # Complete setup guide
 └── package.json           # Dependencies
 ```
 
@@ -288,7 +288,7 @@ Consider adding:
 
 For issues or questions:
 1. Check the README.md
-2. Review ADMIN_SETUP.md
+2. Review this SETUP.md guide
 3. Check Supabase documentation
 4. Review the code comments
 
