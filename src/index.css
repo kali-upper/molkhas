@@ -112,3 +112,15 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* Hide any Bolt branding or watermarks */
+a[href*="bolt"],
+iframe[src*="bolt"],
+div[id*="bolt"],
+div[class*="bolt"],
+script[src*="bolt"],
+*[data-bolt],
+*[bolt] {
+  display: none !important;
+  visibility: hidden !important;
+}
