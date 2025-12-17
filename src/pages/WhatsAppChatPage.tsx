@@ -62,6 +62,23 @@ export function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
     scrollToBottom();
   }, [messages]);
 
+  // Auto-reload data if no data is available
+  useEffect(() => {
+    const autoReloadData = async () => {
+      if (stats.totalChunks === 0) {
+        console.log("🔄 لا توجد بيانات، جاري تحميل البيانات تلقائياً...");
+        try {
+          await whatsAppAssistant.loadAllData();
+          console.log("✅ تم تحميل البيانات تلقائياً");
+        } catch (error) {
+          console.error("❌ فشل في تحميل البيانات تلقائياً:", error);
+        }
+      }
+    };
+
+    autoReloadData();
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -131,6 +148,17 @@ export function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
     setMessages([]);
     localStorage.removeItem(CHAT_STORAGE_KEY);
     onNavigate("whatsapp-upload");
+  };
+
+  const reloadData = async () => {
+    try {
+      console.log("🔄 إعادة تحميل بيانات المساعد...");
+      await whatsAppAssistant.loadAllData();
+      alert("✅ تم إعادة تحميل البيانات بنجاح! المعلومات محدثة الآن.");
+    } catch (error) {
+      console.error("❌ خطأ في إعادة تحميل البيانات:", error);
+      alert("❌ فشل في إعادة تحميل البيانات. تحقق من اتصال الإنترنت.");
+    }
   };
 
   const reEnableAI = async () => {
@@ -335,6 +363,13 @@ export function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
                 🔄 Enable AI
               </button>
             )}
+            <button
+              onClick={reloadData}
+              className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
+              title="Reload latest data from GitHub"
+            >
+              🔄 Reload Data
+            </button>
             <button
               onClick={clearData}
               className="px-3 py-1 text-sm text-red-600 hover:text-red-800"
