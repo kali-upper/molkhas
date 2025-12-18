@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Flag, X } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useNotifications } from "../hooks/useNotifications";
 import { AppealInsert } from "../types/database";
 
 interface AppealFormModalProps {
@@ -20,6 +21,7 @@ export function AppealFormModal({
   contentTitle,
 }: AppealFormModalProps) {
   const { displayName } = useAuth();
+  const { notifyAdmins } = useNotifications();
   const [reason, setReason] = useState("");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,11 +62,28 @@ export function AppealFormModal({
         created_by: user.id,
       };
 
-      const { error } = await (supabase as any)
-        .from("appeals")
-        .insert(appealData);
+      const { error } = await supabase.from("appeals").insert(appealData);
 
       if (error) throw error;
+
+      // إرسال إشعار للمدراء
+      const appealReasonsMap: { [key: string]: string } = {
+        inaccurate_content: "محتوى غير دقيق",
+        copyright_violation: "انتهاك حقوق النشر",
+        inappropriate_content: "محتوى غير مناسب",
+        spam: "محتوى مزعج أو إعلاني",
+        other: "سبب آخر",
+      };
+
+      notifyAdmins(
+        "طعن جديد على محتوى",
+        `تم إرسال طعن على ${
+          contentType === "summary" ? "ملخص" : "خبر"
+        } "${contentTitle}" لسبب: ${appealReasonsMap[reason] || reason}`,
+        "admin_submission",
+        contentId,
+        contentType
+      );
 
       console.log(
         "✅ تم إرسال الطعن بنجاح - شكراً لك على مساهمتك في تحسين المحتوى"

@@ -3,18 +3,13 @@ import { BookOpen, Newspaper, Flag } from "lucide-react";
 import { useSummaries } from "../hooks/useSummaries";
 import { useNews } from "../hooks/useNews";
 import { useAppeals } from "../hooks/useAppeals";
+import { useNotifications } from "../hooks/useNotifications";
 import { SummariesTab } from "../components/SummariesTab";
 import { NewsTab } from "../components/NewsTab";
 import { AppealsTab } from "../components/AppealsTab";
 import { AddNewsModal } from "../components/AddNewsModal";
 
-interface AdminDashboardProps {
-  onNavigate: (page: string) => void;
-}
-
-export function AdminDashboard({
-  onNavigate: _onNavigate,
-}: AdminDashboardProps) {
+function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<"summaries" | "news" | "appeals">(
     "summaries"
   );
@@ -22,6 +17,27 @@ export function AdminDashboard({
   const summariesHook = useSummaries();
   const newsHook = useNews();
   const appealsHook = useAppeals();
+  const { notifyAllUsers } = useNotifications();
+
+  // دالة مخصصة لتحديث status الملخصات مع إرسال إشعارات
+  const handleUpdateSummaryStatus = async (
+    id: string,
+    status: "approved" | "rejected"
+  ) => {
+    const oldSummary = summariesHook.summaries.find((s) => s.id === id);
+    await summariesHook.updateStatus(id, status);
+
+    // إرسال إشعار لجميع المستخدمين عند نشر ملخص
+    if (status === "approved" && oldSummary) {
+      notifyAllUsers(
+        "ملخص جديد متاح!",
+        `تم نشر ملخص جديد: "${oldSummary.title}" في مادة ${oldSummary.subject}`,
+        "content_published",
+        id,
+        "summary"
+      );
+    }
+  };
 
   const isLoading =
     summariesHook.loading || newsHook.loading || appealsHook.loading;
@@ -32,7 +48,7 @@ export function AdminDashboard({
         return (
           <SummariesTab
             summaries={summariesHook.summaries}
-            onUpdateStatus={summariesHook.updateStatus}
+            onUpdateStatus={handleUpdateSummaryStatus}
             onDeleteSummary={summariesHook.deleteSummary}
             onClearAllSummaries={summariesHook.clearAllSummaries}
           />
@@ -127,3 +143,5 @@ export function AdminDashboard({
     </div>
   );
 }
+
+export default AdminDashboard;

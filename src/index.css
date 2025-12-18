@@ -98,6 +98,30 @@
   background: linear-gradient(180deg, #5a67d8, #6b46c1);
 }
 
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  /* Ensure minimum touch targets */
+  button, input, select, textarea, [role="button"] {
+    min-height: 44px;
+  }
+
+  /* Better text readability on mobile */
+  body {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  /* Prevent zoom on input focus on iOS */
+  input, select, textarea {
+    font-size: 16px;
+  }
+
+  /* Better spacing for mobile */
+  .mobile-spacing {
+    margin: 0.5rem 0;
+  }
+}
+
 /* Text gradients */
 .text-gradient-primary {
   background: var(--primary-gradient);

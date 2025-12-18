@@ -6,7 +6,7 @@ interface SignUpPageProps {
   onNavigate: (page: string) => void;
 }
 
-export function SignUpPage({ onNavigate }: SignUpPageProps) {
+function SignUpPage({ onNavigate }: SignUpPageProps) {
   const { signUp, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,9 +41,9 @@ export function SignUpPage({ onNavigate }: SignUpPageProps) {
       setEmail("");
       setPassword("");
       setConfirmPassword("");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error signing up:", err);
-      if (err.message?.includes("already registered")) {
+      if (err instanceof Error && err.message?.includes("already registered")) {
         setError(
           "هذا البريد الإلكتروني مسجل بالفعل. جرب تسجيل الدخول بدلاً من ذلك."
         );
@@ -236,3 +236,5 @@ export function SignUpPage({ onNavigate }: SignUpPageProps) {
     </div>
   );
 }
+
+export default SignUpPage;

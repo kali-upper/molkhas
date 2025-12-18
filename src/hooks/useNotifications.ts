@@ -1,0 +1,249 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import type { Notification, NotificationInsert } from '../types/database';
+
+export function useNotifications() {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // جلب الإشعارات
+  const fetchNotifications = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      setNotifications(data || []);
+      setUnreadCount(data?.filter(n => !n.read).length || 0);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // تحديث حالة القراءة
+  const markAsRead = async (notificationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', notificationId);
+
+      if (error) throw error;
+
+      setNotifications(prev =>
+        prev.map(n =>
+          n.id === notificationId ? { ...n, read: true } : n
+        )
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  // تحديث جميع الإشعارات كمقروءة
+  const markAllAsRead = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
+
+      if (error) throw error;
+
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  // حذف إشعار
+  const deleteNotification = async (notificationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId);
+
+      if (error) throw error;
+
+      const deletedNotification = notifications.find(n => n.id === notificationId);
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+
+      if (deletedNotification && !deletedNotification.read) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
+
+  // إنشاء إشعار جديد
+  const createNotification = async (notification: NotificationInsert) => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert(notification)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // إذا كان الإشعار للمستخدم الحالي، أضفه للقائمة
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && data.user_id === user.id) {
+        setNotifications(prev => [data, ...prev]);
+        if (!data.read) {
+          setUnreadCount(prev => prev + 1);
+        }
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      throw error;
+    }
+  };
+
+  // إرسال إشعار للمدراء
+  const notifyAdmins = async (
+    title: string,
+    message: string,
+    type: 'admin_submission' | 'content_published' | 'system',
+    relatedId?: string,
+    relatedType?: 'summary' | 'news' | 'appeal'
+  ) => {
+    try {
+      // الحصول على جميع المدراء
+      const { data: admins, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin');
+
+      if (error) throw error;
+
+      if (!admins || admins.length === 0) {
+        console.warn('No admins found to notify');
+        return;
+      }
+
+      // إنشاء إشعارات لجميع المدراء
+      const notifications = admins.map(admin => ({
+        user_id: admin.id,
+        title,
+        message,
+        type,
+        related_id: relatedId,
+        related_type: relatedType,
+        read: false
+      }));
+
+      const { error: insertError } = await supabase
+        .from('notifications')
+        .insert(notifications);
+
+      if (insertError) throw insertError;
+
+      console.log(`Notifications sent to ${admins.length} admins`);
+    } catch (error) {
+      console.error('Error notifying admins:', error);
+    }
+  };
+
+  // إرسال إشعار لجميع المستخدمين
+  const notifyAllUsers = async (
+    title: string,
+    message: string,
+    type: 'content_published' | 'system',
+    relatedId?: string,
+    relatedType?: 'summary' | 'news'
+  ) => {
+    try {
+      // الحصول على جميع المستخدمين
+      const { data: users, error } = await supabase.auth.admin.listUsers();
+
+      if (error) throw error;
+
+      if (!users || users.length === 0) {
+        console.warn('No users found to notify');
+        return;
+      }
+
+      // إنشاء إشعارات لجميع المستخدمين
+      const notifications = users.users.map(user => ({
+        user_id: user.id,
+        title,
+        message,
+        type,
+        related_id: relatedId,
+        related_type: relatedType,
+        read: false
+      }));
+
+      const { error: insertError } = await supabase
+        .from('notifications')
+        .insert(notifications);
+
+      if (insertError) throw insertError;
+
+      console.log(`Notifications sent to ${users.users.length} users`);
+    } catch (error) {
+      console.error('Error notifying all users:', error);
+    }
+  };
+
+  // الاشتراك في التحديثات التلقائية
+  useEffect(() => {
+    fetchNotifications();
+
+    // الاشتراك في التحديثات التلقائية للإشعارات
+    const channel = supabase
+      .channel('notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+        },
+        (payload) => {
+          console.log('New notification received:', payload);
+          fetchNotifications(); // إعادة جلب الإشعارات
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  return {
+    notifications,
+    loading,
+    unreadCount,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    createNotification,
+    notifyAdmins,
+    notifyAllUsers
+  };
+}

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useNotifications } from "../hooks/useNotifications";
 import { News } from "../types/database";
 import { AppealFormModal } from "../components/AppealFormModal";
 
@@ -19,8 +20,9 @@ interface NewsPageProps {
   onNavigate: (page: string, id?: string) => void;
 }
 
-export function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
+function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
   const { user } = useAuth();
+  const { notifyAdmins, notifyAllUsers } = useNotifications();
   const [news, setNews] = useState<NewsItem[]>([]);
   const [filteredNews, setFilteredNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,7 +141,7 @@ export function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
           content: newNews.content.trim(),
           type: newNews.type,
           created_by: user.id,
-        } as any)
+        })
         .select()
         .single();
 
@@ -150,6 +152,30 @@ export function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
 
       // إضافة الخبر الجديد إلى القائمة
       setNews((prev) => [data, ...prev]);
+
+      // إرسال إشعار للمدراء
+      notifyAdmins(
+        "خبر جديد يحتاج مراجعة",
+        `تم إضافة خبر جديد بعنوان "${newNews.title}" من نوع ${
+          newNews.type === "announcement"
+            ? "إعلان"
+            : newNews.type === "update"
+            ? "تحديث"
+            : "مهم جداً"
+        }`,
+        "admin_submission",
+        data.id,
+        "news"
+      );
+
+      // إرسال إشعار لجميع المستخدمين
+      notifyAllUsers(
+        "خبر جديد!",
+        `تم نشر خبر جديد: "${newNews.title}"`,
+        "content_published",
+        data.id,
+        "news"
+      );
 
       // إعادة تعيين النموذج
       setNewNews({
@@ -443,3 +469,5 @@ export function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
     </div>
   );
 }
+
+export default NewsPage;

@@ -1,5 +1,7 @@
 import { ReactNode } from "react";
 import { Header } from "./Header";
+import { PWAInstallPrompt } from "./PWAInstallPrompt";
+import { NotificationPrompt } from "./NotificationManager";
 
 interface LayoutProps {
   children: ReactNode;
@@ -11,9 +13,11 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
       <Header currentPage={currentPage} onNavigate={onNavigate} />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
         {children}
       </main>
+      <PWAInstallPrompt />
+      <NotificationPrompt />
       <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center space-y-2">
           <p className="text-gray-600 dark:text-gray-400 text-sm">
@@ -28,7 +32,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
             >
               Aboalayoun
             </button>{" "}
-             made with 🤍 by 
+            made with 🤍 by
           </p>
         </div>
       </footer>

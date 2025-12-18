@@ -17,10 +17,7 @@ interface SummaryDetailPageProps {
   onNavigate: (page: string) => void;
 }
 
-export function SummaryDetailPage({
-  summaryId,
-  onNavigate,
-}: SummaryDetailPageProps) {
+function SummaryDetailPage({ summaryId, onNavigate }: SummaryDetailPageProps) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -194,3 +191,5 @@ export function SummaryDetailPage({
     </div>
   );
 }
+
+export default SummaryDetailPage;

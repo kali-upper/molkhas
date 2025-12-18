@@ -1,17 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { ChatProvider } from "./contexts/ChatContext";
+import { NotificationProvider } from "./components/NotificationManager";
 import { Layout } from "./components/Layout";
-import { HomePage } from "./pages/HomePage";
-import { AddSummaryPage } from "./pages/AddSummaryPage";
-import { SummaryDetailPage } from "./pages/SummaryDetailPage";
-import { AdminDashboard } from "./pages/AdminDashboard";
-import { LoginPage } from "./pages/LoginPage";
-import { SignUpPage } from "./pages/SignUpPage";
-import { NewsPage } from "./pages/NewsPage";
-import { WhatsAppUploadPage } from "./pages/WhatsAppUploadPage";
-import { WhatsAppChatPage } from "./pages/WhatsAppChatPage";
-import { ProfilePage } from "./pages/ProfilePage";
+
+// Lazy load all page components for code splitting
+const HomePage = lazy(() => import("./pages/HomePage"));
+const AddSummaryPage = lazy(() => import("./pages/AddSummaryPage"));
+const SummaryDetailPage = lazy(() => import("./pages/SummaryDetailPage"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const SignUpPage = lazy(() => import("./pages/SignUpPage"));
+const NewsPage = lazy(() => import("./pages/NewsPage"));
+const WhatsAppUploadPage = lazy(() => import("./pages/WhatsAppUploadPage"));
+const WhatsAppChatPage = lazy(() => import("./pages/WhatsAppChatPage"));
+const ChatPage = lazy(() => import("./pages/ChatPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<string>("home");
@@ -55,27 +60,37 @@ function AppContent() {
 
   return (
     <Layout currentPage={currentPage} onNavigate={navigate}>
-      {currentPage === "home" && <HomePage onNavigate={navigate} />}
-      {currentPage === "news" && <NewsPage onNavigate={navigate} />}
-      {currentPage === "add" && <AddSummaryPage onNavigate={navigate} />}
-      {currentPage === "summary" && (
-        <SummaryDetailPage summaryId={summaryId} onNavigate={navigate} />
-      )}
-      {currentPage === "login" && <LoginPage onNavigate={navigate} />}
-      {currentPage === "signup" && <SignUpPage onNavigate={navigate} />}
-      {currentPage === "admin" &&
-        (isAdmin ? (
-          <AdminDashboard onNavigate={navigate} />
-        ) : (
-          <LoginPage onNavigate={navigate} />
-        ))}
-      {currentPage === "whatsapp-upload" && (
-        <WhatsAppUploadPage onNavigate={navigate} />
-      )}
-      {currentPage === "whatsapp-chat" && (
-        <WhatsAppChatPage onNavigate={navigate} />
-      )}
-      {currentPage === "profile" && <ProfilePage onNavigate={navigate} />}
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600 dark:text-gray-400">
+                جاري التحميل...
+              </p>
+            </div>
+          </div>
+        }
+      >
+        {currentPage === "home" && <HomePage onNavigate={navigate} />}
+        {currentPage === "news" && <NewsPage onNavigate={navigate} />}
+        {currentPage === "add" && <AddSummaryPage onNavigate={navigate} />}
+        {currentPage === "summary" && (
+          <SummaryDetailPage summaryId={summaryId} onNavigate={navigate} />
+        )}
+        {currentPage === "login" && <LoginPage onNavigate={navigate} />}
+        {currentPage === "signup" && <SignUpPage onNavigate={navigate} />}
+        {currentPage === "admin" &&
+          (isAdmin ? <AdminDashboard /> : <LoginPage onNavigate={navigate} />)}
+        {currentPage === "whatsapp-upload" && (
+          <WhatsAppUploadPage onNavigate={navigate} />
+        )}
+        {currentPage === "whatsapp-chat" && (
+          <WhatsAppChatPage onNavigate={navigate} />
+        )}
+        {currentPage === "chat" && <ChatPage />}
+        {currentPage === "profile" && <ProfilePage onNavigate={navigate} />}
+      </Suspense>
     </Layout>
   );
 }
@@ -83,9 +98,13 @@ function AppContent() {
 function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <NotificationProvider>
+        <AuthProvider>
+          <ChatProvider>
+            <AppContent />
+          </ChatProvider>
+        </AuthProvider>
+      </NotificationProvider>
     </ThemeProvider>
   );
 }

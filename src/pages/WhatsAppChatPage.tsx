@@ -13,7 +13,7 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-export function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
+function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -36,12 +36,14 @@ export function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
       try {
         const parsedMessages = JSON.parse(savedMessages);
         // Convert timestamp strings back to Date objects
-        const messagesWithDates = parsedMessages.map((msg: any) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp),
-        }));
+        const messagesWithDates = parsedMessages.map(
+          (msg: { timestamp: string; [key: string]: unknown }) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp),
+          })
+        );
         setMessages(messagesWithDates);
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Error loading chat messages from localStorage:", error);
       }
     }
@@ -52,7 +54,7 @@ export function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
     if (messages.length > 0) {
       try {
         localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Error saving chat messages to localStorage:", error);
       }
     }
@@ -70,7 +72,7 @@ export function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
         try {
           await whatsAppAssistant.loadAllData();
           console.log("✅ تم تحميل البيانات تلقائياً");
-        } catch (error) {
+        } catch (error: unknown) {
           console.error("❌ فشل في تحميل البيانات تلقائياً:", error);
         }
       }
@@ -110,7 +112,7 @@ export function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error getting AI response:", error);
       const errorMessage: ChatMessage = {
         id: `error_${Date.now()}`,
@@ -155,7 +157,7 @@ export function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
       console.log("🔄 إعادة تحميل بيانات المساعد...");
       await whatsAppAssistant.loadAllData();
       alert("✅ تم إعادة تحميل البيانات بنجاح! المعلومات محدثة الآن.");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("❌ خطأ في إعادة تحميل البيانات:", error);
       alert("❌ فشل في إعادة تحميل البيانات. تحقق من اتصال الإنترنت.");
     }
@@ -216,25 +218,17 @@ export function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
       // Update status to show validation was successful
       localStorage.setItem("gemini_api_status", "working");
       localStorage.setItem("gemini_last_test", Date.now().toString());
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("⚠️ تحذير: مفتاح API قد لا يعمل بشكل صحيح:", error);
 
+      const errorMsg = error instanceof Error ? error.message : String(error);
       let errorMessage = "تحذير: مفتاح API قد لا يعمل بشكل صحيح. ";
 
-      if (
-        error.message?.includes("API_KEY") ||
-        error.message?.includes("invalid")
-      ) {
+      if (errorMsg.includes("API_KEY") || errorMsg.includes("invalid")) {
         errorMessage += "المفتاح غير صحيح.";
-      } else if (
-        error.message?.includes("429") ||
-        error.message?.includes("quota")
-      ) {
+      } else if (errorMsg.includes("429") || errorMsg.includes("quota")) {
         errorMessage += "تم تجاوز حد الاستخدام.";
-      } else if (
-        error.message?.includes("network") ||
-        error.message?.includes("fetch")
-      ) {
+      } else if (errorMsg.includes("network") || errorMsg.includes("fetch")) {
         errorMessage += "مشكلة في الاتصال.";
       } else {
         errorMessage += "تحقق من صحة المفتاح.";
@@ -376,12 +370,6 @@ export function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
               title="Clear all data and upload new chat"
             >
               Clear Data
-            </button>
-            <button
-              onClick={() => onNavigate("home")}
-              className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-            >
-              ← Home
             </button>
           </div>
         </div>
@@ -637,3 +625,5 @@ export function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
     </div>
   );
 }
+
+export default WhatsAppChatPage;

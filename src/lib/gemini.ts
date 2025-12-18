@@ -1,5 +1,5 @@
-// Import Google Generative AI
-import { GoogleGenerativeAI } from '@google/generative-ai';
+// Lazy import Google Generative AI to avoid bundling conflicts
+let GoogleGenerativeAI: any = null;
 
 // متغير لتتبع حالة الـ AI
 let isAIWorking = true;
@@ -19,67 +19,47 @@ if (!GEMINI_API_KEY) {
   isAIWorking = false;
 }
 
-let genAI: GoogleGenerativeAI;
-let model: any;
+let genAI: any = null;
+let model: any = null;
 
-try {
-  genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-  model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-  console.log('✅ Gemini model initialized successfully');
+// Lazy initialization function
+async function initializeGemini(): Promise<void> {
+  if (genAI && model) return; // Already initialized
 
-  // Smart API testing with quota awareness
-  const lastTestTime = localStorage.getItem('gemini_last_test');
-  const savedStatus = localStorage.getItem('gemini_api_status');
-  const now = Date.now();
+  try {
+    // Dynamic import to avoid bundling conflicts
+    const { GoogleGenerativeAI: GAI } = await import('@google/generative-ai');
+    GoogleGenerativeAI = GAI;
 
-  // Different retry intervals based on status
-  let shouldTest = false;
-  let testReason = '';
+    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    console.log('✅ Gemini model initialized successfully');
+  } catch (error: unknown) {
+    console.error('❌ Error initializing Gemini model:', error);
+      console.log('💡 Make sure your API key is valid and has proper permissions');
+      isAIWorking = false;
+      throw error;
+    }
+}
 
-  if (!lastTestTime) {
-    // First time - always test
-    shouldTest = true;
-    testReason = 'first time initialization';
-  } else if (savedStatus === 'quota_exceeded') {
-    // Quota exceeded - only retry after 24 hours (quota reset time)
-    const twentyFourHours = 24 * 60 * 60 * 1000;
-    shouldTest = (now - parseInt(lastTestTime)) > twentyFourHours;
-    testReason = shouldTest ? '24 hours passed since quota error' : 'quota exceeded - waiting for reset';
-  } else if (savedStatus === 'error') {
-    // General error - retry after 1 hour
-    const oneHour = 60 * 60 * 1000;
-    shouldTest = (now - parseInt(lastTestTime)) > oneHour;
-    testReason = shouldTest ? '1 hour passed since error' : 'error state - waiting before retry';
-  } else {
-    // Working or unknown status - test once per hour
-    const oneHour = 60 * 60 * 1000;
-    shouldTest = (now - parseInt(lastTestTime)) > oneHour;
-    testReason = shouldTest ? 'hourly check' : 'tested recently';
-  }
+// Lazy initialization will happen when first needed
+console.log('⏸️ Skipping Gemini initialization during module load - will initialize lazily when needed');
+console.log('🧪 API will be tested on first actual usage');
 
-  // Skip immediate API testing during module initialization to avoid build issues
-  // API will be tested on first actual usage instead
-  console.log(`⏸️ Skipping API test during initialization (${testReason})`);
-  console.log('🧪 API will be tested on first actual usage');
-
-  // Set initial status based on saved status
-  if (savedStatus === 'working') {
-    console.log('📊 Using saved status: working');
-    isAIWorking = true;
-  } else if (savedStatus === 'quota_exceeded') {
-    console.log('📊 Using saved status: quota exceeded (fallback mode)');
-    isAIWorking = false;
-  } else if (savedStatus === 'error') {
-    console.log('📊 Using saved status: error (fallback mode)');
-    isAIWorking = false;
-  } else {
-    console.log('📊 No saved status, assuming working');
-    isAIWorking = true;
-  }
-} catch (error) {
-  console.error('❌ Error initializing Gemini model:', error);
-  console.log('💡 Make sure your API key is valid and has proper permissions');
+// Set initial status based on saved status
+const savedStatus = localStorage.getItem('gemini_api_status');
+if (savedStatus === 'working') {
+  console.log('📊 Using saved status: working');
+  isAIWorking = true;
+} else if (savedStatus === 'quota_exceeded') {
+  console.log('📊 Using saved status: quota exceeded (fallback mode)');
   isAIWorking = false;
+} else if (savedStatus === 'error') {
+  console.log('📊 Using saved status: error (fallback mode)');
+  isAIWorking = false;
+} else {
+  console.log('📊 No saved status, assuming working');
+  isAIWorking = true;
 }
 
 
@@ -344,6 +324,8 @@ export class WhatsAppAssistant {
     if (!isAIWorking) {
       console.log('🔄 AI was disabled, attempting to re-enable...');
       try {
+        // Ensure Gemini is initialized
+        await initializeGemini();
         // Quick test to see if AI is working now
         const testResult = await model.generateContent('Test if AI is working');
         await testResult.response;
@@ -351,7 +333,7 @@ export class WhatsAppAssistant {
         localStorage.setItem('gemini_api_status', 'working');
         localStorage.removeItem('gemini_quota_error');
         console.log('✅ AI re-enabled successfully');
-      } catch (testError: any) {
+      } catch (testError: unknown) {
         console.log('❌ AI still not working, staying in fallback mode');
 
         // Only show relevant chunks with strict relevance check
@@ -398,8 +380,10 @@ export class WhatsAppAssistant {
 
       console.log('✅ Highly relevant chunks after filtering:', highlyRelevantChunks.length);
 
+        const testErrorMsg = testError instanceof Error ? testError.message : String(testError);
+
         if (highlyRelevantChunks.length === 0) {
-          if (testError.message?.includes('429') || testError.message?.includes('quota')) {
+          if (testErrorMsg.includes('429') || testErrorMsg.includes('quota')) {
             const quotaReset = new Date();
             quotaReset.setHours(24, 0, 0, 0);
             const hoursLeft = Math.ceil((quotaReset.getTime() - new Date().getTime()) / (1000 * 60 * 60));
@@ -415,7 +399,7 @@ export class WhatsAppAssistant {
           .map(chunk => `${chunk.author || 'مستخدم'}: ${chunk.content}`)
           .join('\n\n');
 
-        if (testError.message?.includes('429') || testError.message?.includes('quota')) {
+        if (testErrorMsg.includes('429') || testErrorMsg.includes('quota')) {
           const quotaReset = new Date();
           quotaReset.setHours(24, 0, 0, 0);
           const hoursLeft = Math.ceil((quotaReset.getTime() - new Date().getTime()) / (1000 * 60 * 60));
@@ -449,6 +433,9 @@ ${context}
 - تجاهل أي محتوى غير لائق أو هزلي في السياق`;
 
     try {
+      // Ensure Gemini is initialized before using it
+      await initializeGemini();
+
       console.log('🚀 Calling Gemini AI with prompt length:', prompt.length);
       console.log('🔑 API Key present:', GEMINI_API_KEY ? 'YES' : 'NO');
 
@@ -461,16 +448,18 @@ ${context}
       console.log('📝 AI Response preview:', aiResponse.substring(0, 100) + '...');
 
       return this.filterResponseForSafety(aiResponse);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Error generating Gemini response:', error);
 
       // Update AI status on error
       isAIWorking = false;
 
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
       // More detailed error messages based on error type
-      if (error.message?.includes('API_KEY') || error.message?.includes('api key')) {
+      if (errorMessage.includes('API_KEY') || errorMessage.includes('api key')) {
         return "❌ مشكلة في مفتاح API: تأكد من صحة مفتاح Google Gemini API في متغيرات البيئة.";
-      } else if (error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('limit')) {
+      } else if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('limit')) {
         localStorage.setItem('gemini_quota_error', new Date().toISOString());
         const quotaReset = new Date();
         quotaReset.setHours(24, 0, 0, 0); // Next midnight UTC
@@ -478,12 +467,12 @@ ${context}
         const hoursLeft = Math.ceil((quotaReset.getTime() - new Date().getTime()) / (1000 * 60 * 60));
 
         return `⏰ تم تجاوز الحد المسموح للاستخدام المجاني (20 طلب يومياً).\n\n📊 الحالة الحالية:\n• تم استخدام جميع الطلبات المسموحة اليوم\n• إعادة التعيين التلقائي: ${quotaReset.toLocaleString('ar-SA')}\n• الوقت المتبقي: ${hoursLeft} ساعة تقريباً\n\n💡 الحلول:\n• انتظر حتى منتصف الليل لإعادة التعيين التلقائي\n• أضف بطاقة ائتمان لترقية الخطة المجانية\n• استخدم النظام البديل حالياً (يعرض الرسائل ذات الصلة)\n\n🔗 لترقية الخطة: https://ai.google.dev/gemini-api/docs/rate-limits`;
-      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
         return "🌐 مشكلة في الاتصال بالإنترنت. تأكد من اتصالك ثم أعد المحاولة.";
-      } else if (error.message?.includes('model') || error.message?.includes('not found')) {
+      } else if (errorMessage.includes('model') || errorMessage.includes('not found')) {
         return "🤖 مشكلة في نموذج الذكاء الاصطناعي. قد يكون النموذج غير متاح حالياً.";
       } else {
-        return `❌ حدث خطأ تقني: ${error.message || 'خطأ غير معروف'}\n\n💡 جرب إعادة تحميل الصفحة أو المحاولة مرة أخرى. إذا استمر الخطأ، تأكد من صحة مفتاح API.`;
+        return `❌ حدث خطأ تقني: ${errorMessage}\n\n💡 جرب إعادة تحميل الصفحة أو المحاولة مرة أخرى. إذا استمر الخطأ، تأكد من صحة مفتاح API.`;
       }
     }
   }
@@ -521,7 +510,7 @@ ${context}
       hasApiKey: !!GEMINI_API_KEY,
       hasCustomApiKey: !!customApiKey,
       customApiKeyMasked: customApiKey ? `${customApiKey.substring(0, 8)}...${customApiKey.substring(customApiKey.length - 4)}` : null,
-      hasModel: !!model,
+      hasModel: !!model || !!GoogleGenerativeAI, // Check if library is loaded or model is initialized
       lastQuotaError: localStorage.getItem('gemini_quota_error'),
       quotaResetTime: quotaReset,
       hoursUntilReset: hoursUntilReset > 0 ? hoursUntilReset : 0,
@@ -531,9 +520,12 @@ ${context}
 
   // Force re-enable AI (useful after quota reset)
   async forceReEnableAI(): Promise<boolean> {
-    if (!GEMINI_API_KEY || !model) return false;
+    if (!GEMINI_API_KEY) return false;
 
     try {
+      // Ensure Gemini is initialized
+      await initializeGemini();
+
       console.log('🔄 Force re-enabling AI...');
       const testResult = await model.generateContent('Test');
       await testResult.response;
@@ -543,10 +535,11 @@ ${context}
       localStorage.setItem('gemini_last_test', Date.now().toString());
       console.log('✅ AI re-enabled successfully');
       return true;
-    } catch (error: any) {
-      console.log('❌ Failed to re-enable AI:', error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log('❌ Failed to re-enable AI:', errorMessage);
 
-      if (error.message?.includes('429') || error.message?.includes('quota')) {
+      if (errorMessage.includes('429') || errorMessage.includes('quota')) {
         localStorage.setItem('gemini_quota_error', new Date().toISOString());
         localStorage.setItem('gemini_api_status', 'quota_exceeded');
       } else {
@@ -596,7 +589,7 @@ ${context}
         console.log(`✅ Loaded local data.txt: ${localChunks.length} messages`);
         totalLoaded += localChunks.length;
       }
-    } catch (error) {
+    } catch {
       console.log('ℹ️ Local data.txt not available (this is normal in production)');
     }
 
@@ -628,36 +621,22 @@ ${context}
   }
 
   // Method to reinitialize Gemini with new API key
-  reinitializeGemini(): void {
+  async reinitializeGemini(): Promise<void> {
     console.log('🔄 Reinitializing Gemini API...');
 
-    // Re-read API keys
-    const customApiKey = localStorage.getItem('user_gemini_api_key');
-    const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    const newApiKey = customApiKey || envApiKey;
-
-    console.log('🔑 New custom API key in localStorage:', customApiKey ? 'YES' : 'NO');
-    console.log('🔑 Using custom API key:', !!customApiKey);
-
-    if (!newApiKey) {
-      console.warn('⚠️ No API key available after reinitialization');
-      isAIWorking = false;
-      genAI = null as any;
-      model = null as any;
-      return;
-    }
+    // Reset the module-level variables to force re-initialization
+    genAI = null;
+    model = null;
+    GoogleGenerativeAI = null;
 
     try {
-      genAI = new GoogleGenerativeAI(newApiKey);
-      model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      await initializeGemini();
       isAIWorking = true;
       localStorage.setItem('gemini_api_status', 'working');
       console.log('✅ Gemini reinitialized successfully');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Error reinitializing Gemini:', error);
       isAIWorking = false;
-      genAI = null as any;
-      model = null as any;
     }
   }
 }

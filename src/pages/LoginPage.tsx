@@ -6,7 +6,7 @@ interface LoginPageProps {
   onNavigate: (page: string) => void;
 }
 
-export function LoginPage({ onNavigate }: LoginPageProps) {
+function LoginPage({ onNavigate }: LoginPageProps) {
   const { signIn, signInWithGoogle, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -189,3 +189,5 @@ export function LoginPage({ onNavigate }: LoginPageProps) {
     </div>
   );
 }
+
+export default LoginPage;

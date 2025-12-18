@@ -60,7 +60,7 @@ export function NewsTab({
             key={item.id}
             className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors"
           >
-            <div className="flex justify-between items-start mb-4">
+            <div className="flex flex-col gap-2 md:flex-row md:justify-between items-start mb-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -81,11 +81,11 @@ export function NewsTab({
                     ? `${item.content.substring(0, 200)}...`
                     : item.content}
                 </p>
-                <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-sm text-gray-500 dark:text-gray-400">
                   <span>النوع: {item.type}</span>
                 </div>
               </div>
-              <div className="flex gap-2 ml-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:gap-2 ml-0 sm:ml-4">
                 <button
                   onClick={() => onToggleStatus(item.id, !item.is_active)}
                   className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${

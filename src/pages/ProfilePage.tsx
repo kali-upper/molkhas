@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { User, Mail, Shield, Edit3, Save, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { NotificationSettings } from "../components/NotificationManager";
 
 interface ProfilePageProps {
   onNavigate: (page: string) => void;
 }
 
-export function ProfilePage({ onNavigate }: ProfilePageProps) {
+function ProfilePage({ onNavigate }: ProfilePageProps) {
   const { user, displayName, isAdmin, updateDisplayName } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState(displayName || "");
@@ -174,6 +175,16 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
             </div>
           </div>
 
+          {/* Notification Settings */}
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              إعدادات الإشعارات
+            </h2>
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+              <NotificationSettings />
+            </div>
+          </div>
+
           {/* Account Information */}
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
@@ -183,7 +194,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
               {/* User ID */}
               <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-                  ID 
+                  ID
                 </p>
                 <p className="font-mono text-sm text-gray-900 dark:text-white break-all">
                   {user.id}
@@ -213,13 +224,16 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
                 </p>
                 <p className="font-medium text-gray-900 dark:text-white">
                   {user.last_sign_in_at
-                    ? new Date(user.last_sign_in_at).toLocaleDateString("ar-EG", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
+                    ? new Date(user.last_sign_in_at).toLocaleDateString(
+                        "ar-EG",
+                        {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }
+                      )
                     : "غير محدد"}
                 </p>
               </div>
@@ -240,3 +254,5 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
     </div>
   );
 }
+
+export default ProfilePage;

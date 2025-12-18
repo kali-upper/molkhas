@@ -2,14 +2,18 @@ import { useState } from "react";
 import { Upload, Send, CheckCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useNotifications as useBrowserNotifications } from "../components/NotificationManager";
+import { useNotifications as useDbNotifications } from "../hooks/useNotifications";
 import type { SummaryInsert } from "../types/database";
 
 interface AddSummaryPageProps {
   onNavigate: (page: string) => void;
 }
 
-export function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
+function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
   const { displayName } = useAuth();
+  const { sendNotification } = useBrowserNotifications();
+  const { notifyAdmins } = useDbNotifications();
   const [formData, setFormData] = useState({
     title: "",
     subject: "",
@@ -61,13 +65,34 @@ export function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
         status: "pending",
       };
 
-      const { error: insertError } = await supabase
+      const { data: insertedData, error: insertError } = await supabase
         .from("summaries")
-        .insert(summaryData as any);
+        .insert(summaryData)
+        .select()
+        .single();
 
       if (insertError) throw insertError;
 
       setSuccess(true);
+
+      // إرسال إشعار نجاح الإضافة للمستخدم
+      sendNotification("تم إرسال الملخص بنجاح!", {
+        body: `ملخص "${formData.title}" تم إرساله وسيتم مراجعته قريباً`,
+        icon: "/logo_1.png",
+        tag: "summary-submitted",
+      });
+
+      // إرسال إشعار للمدراء
+      notifyAdmins(
+        "ملخص جديد يحتاج مراجعة",
+        `تم إرسال ملخص جديد بعنوان "${formData.title}" في مادة ${
+          formData.subject
+        } بواسطة ${displayName || "مستخدم"}`,
+        "admin_submission",
+        insertedData.id,
+        "summary"
+      );
+
       setFormData({
         title: "",
         subject: "",
@@ -102,15 +127,15 @@ export function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
   if (success) {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center transition-colors">
-          <CheckCircle className="w-16 h-16 text-green-600 dark:text-green-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 sm:p-8 text-center transition-colors">
+          <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 text-green-600 dark:text-green-400 mx-auto mb-4" />
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mb-2">
             تم إرسال الملخص بنجاح!
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4">
             سيتم مراجعة الملخص من قبل المشرفين ونشره قريباً
           </p>
-          <p className="text-sm text-gray-500 dark:text-gray-500">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-500">
             سيتم تحويلك إلى الصفحة الرئيسية...
           </p>
         </div>
@@ -120,11 +145,11 @@ export function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 transition-colors">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 lg:p-8 transition-colors">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mb-2">
           إضافة ملخص جديد
         </h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4 sm:mb-6">
           شارك ملخصك مع زملائك الطلاب
         </p>
 
@@ -134,7 +159,7 @@ export function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               عنوان الملخص <span className="text-red-500">*</span>
@@ -146,7 +171,7 @@ export function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
               onChange={(e) =>
                 setFormData({ ...formData, title: e.target.value })
               }
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+              className="w-full px-3 sm:px-4 py-3 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-base"
               placeholder="مثال: ملخص الفصل الأول - مقدمة في البرمجة"
             />
           </div>
@@ -165,7 +190,8 @@ export function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">اختر التخصص</option>
-                <option value="ذكاء اصطناعي">ذكاء اصطناعي ☝</option>                <option value="هندسة برمجيات">هندسة برمجيات</option>
+                <option value="ذكاء اصطناعي">ذكاء اصطناعي ☝</option>{" "}
+                <option value="هندسة برمجيات">هندسة برمجيات</option>
                 <option value="علوم الحاسب ونظم المعلومات">
                   علوم الحاسب ونظم المعلومات
                 </option>
@@ -201,7 +227,7 @@ export function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
               onChange={(e) =>
                 setFormData({ ...formData, subject: e.target.value })
               }
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+              className="w-full px-3 sm:px-4 py-3 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-base"
               placeholder="مثال: أساسيات البرمجة"
             />
           </div>
@@ -217,7 +243,7 @@ export function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
                 setFormData({ ...formData, content: e.target.value })
               }
               rows={10}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+              className="w-full px-3 sm:px-4 py-3 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-base"
               placeholder="اكتب محتوى الملخص هنا..."
             />
           </div>
@@ -267,7 +293,7 @@ export function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white px-6 py-3 rounded-lg font-medium focus:ring-4 focus:ring-blue-200 dark:focus:ring-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white px-4 sm:px-6 py-3 sm:py-3 rounded-lg font-medium focus:ring-4 focus:ring-blue-200 dark:focus:ring-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-base touch-manipulation"
           >
             {loading ? (
               <>
@@ -286,3 +312,5 @@ export function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
     </div>
   );
 }
+
+export default AddSummaryPage;

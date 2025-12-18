@@ -6,7 +6,7 @@ interface WhatsAppUploadPageProps {
   onNavigate: (page: string) => void;
 }
 
-export function WhatsAppUploadPage({ onNavigate }: WhatsAppUploadPageProps) {
+function WhatsAppUploadPage({ onNavigate }: WhatsAppUploadPageProps) {
   const [hasLoaded, setHasLoaded] = useState(false);
   useEffect(() => {
     if (hasLoaded) return; // Prevent duplicate loading
@@ -69,3 +69,5 @@ export function WhatsAppUploadPage({ onNavigate }: WhatsAppUploadPageProps) {
     </div>
   );
 }
+
+export default WhatsAppUploadPage;
