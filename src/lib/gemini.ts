@@ -554,7 +554,7 @@ ${context}
     console.log('🔄 Loading WhatsApp data from GitHub...');
 
     const filesToLoad = [
-      'https://raw.githubusercontent.com/kali-upper/Molkhas-app/refs/heads/master/data.txt'
+      'https://raw.githubusercontent.com/kali-upper/whatsapp-group/refs/heads/main/data.txt'
     ];
 
     let totalLoaded = 0;
