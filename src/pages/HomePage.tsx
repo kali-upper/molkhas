@@ -105,10 +105,10 @@ function HomePage({ onNavigate }: HomePageProps) {
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-4 sm:p-6 lg:p-8 text-white shadow-lg">
-        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2">
+        <h1 className="text-xl sm:text-2xl tablet:text-3xl lg:text-3xl font-bold mb-2">
           مرحباً بك في منصة Molkhas
         </h1>
-        <p className="text-sm sm:text-base text-blue-100">
+        <p className="text-sm sm:text-base tablet:text-lg text-blue-100">
           شارك واستفد من الملخصات الدراسية التي يقدمها زملاؤك
         </p>
       </div>
@@ -191,14 +191,14 @@ function HomePage({ onNavigate }: HomePageProps) {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 tablet:grid-cols-2 lg:grid-cols-3">
           {filteredSummaries.map((summary) => (
             <div
               key={summary.id}
               onClick={() => onNavigate("summary", summary.id)}
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all p-4 sm:p-6 cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-700 touch-manipulation"
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all p-4 sm:p-6 tablet:p-8 cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-700 touch-manipulation"
             >
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 line-clamp-2">
+              <h3 className="text-base sm:text-lg tablet:text-xl font-semibold text-gray-900 dark:text-white mb-3 line-clamp-2">
                 {summary.title}
               </h3>
 
