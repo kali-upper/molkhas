@@ -161,12 +161,18 @@ function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
 
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="summary-title"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               عنوان الملخص <span className="text-red-500">*</span>
             </label>
             <input
+              id="summary-title"
+              name="summaryTitle"
               type="text"
               required
+              autoComplete="off"
               value={formData.title}
               onChange={(e) =>
                 setFormData({ ...formData, title: e.target.value })
@@ -178,11 +184,17 @@ function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
 
           <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor="summary-department"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 التخصص <span className="text-red-500">*</span>
               </label>
               <select
+                id="summary-department"
+                name="summaryDepartment"
                 required
+                autoComplete="off"
                 value={formData.department}
                 onChange={(e) =>
                   setFormData({ ...formData, department: e.target.value })
@@ -199,11 +211,17 @@ function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor="summary-year"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 المستوى الدراسي <span className="text-red-500">*</span>
               </label>
               <select
+                id="summary-year"
+                name="summaryYear"
                 required
+                autoComplete="off"
                 value={formData.year}
                 onChange={(e) =>
                   setFormData({ ...formData, year: e.target.value })
@@ -217,12 +235,18 @@ function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="summary-subject"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               اسم المادة <span className="text-red-500">*</span>
             </label>
             <input
+              id="summary-subject"
+              name="summarySubject"
               type="text"
               required
+              autoComplete="off"
               value={formData.subject}
               onChange={(e) =>
                 setFormData({ ...formData, subject: e.target.value })
@@ -233,11 +257,17 @@ function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="summary-content"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               محتوى الملخص <span className="text-red-500">*</span>
             </label>
             <textarea
+              id="summary-content"
+              name="summaryContent"
               required
+              autoComplete="off"
               value={formData.content}
               onChange={(e) =>
                 setFormData({ ...formData, content: e.target.value })
@@ -253,7 +283,10 @@ function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
               رفع ملف PDF (اختياري)
             </label>
             <div className="flex items-center justify-center w-full">
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+              <label
+                htmlFor="summary-pdf-upload"
+                className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                   <Upload className="w-8 h-8 text-gray-500 dark:text-gray-400 mb-2" />
                   {pdfFile ? (
@@ -272,6 +305,8 @@ function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
                   )}
                 </div>
                 <input
+                  id="summary-pdf-upload"
+                  name="summaryPdfUpload"
                   type="file"
                   className="hidden"
                   accept=".pdf"

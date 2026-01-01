@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { News, Database } from "../types/database";
 
@@ -16,7 +16,7 @@ export function useNews() {
     created_by: null,
   });
 
-  const fetchNews = async () => {
+  const fetchNews = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -29,9 +29,10 @@ export function useNews() {
     } catch (error) {
       console.error("Error fetching news:", error);
     } finally {
+      console.log("useNews: fetch finished");
       setLoading(false);
     }
-  };
+  }, []); // Empty dependency array means this function is stable
 
   const addNews = async () => {
     try {
@@ -85,7 +86,7 @@ export function useNews() {
 
   useEffect(() => {
     fetchNews();
-  }, []);
+  }, [fetchNews]);
 
   return {
     news,

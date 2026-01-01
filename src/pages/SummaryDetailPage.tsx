@@ -95,8 +95,8 @@ function SummaryDetailPage({ summaryId, onNavigate }: SummaryDetailPageProps) {
       </button>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 px-8 py-6 text-white">
-          <h1 className="text-3xl font-bold mb-4">{summary.title}</h1>
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 px-6 sm:px-8 py-6 text-white">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-4">{summary.title}</h1>
 
           <div className="flex flex-wrap gap-4 text-sm">
             <div className="flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-lg">

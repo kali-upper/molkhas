@@ -2,12 +2,13 @@ import {
   createContext,
   useContext,
   useEffect,
-  useRef,
   useState,
   ReactNode,
+  useCallback,
 } from "react";
-import { User } from "@supabase/supabase-js";
+import { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { chatHelpers } from "../lib/supabase";
 
 interface AuthContextType {
   user: User | null;
@@ -16,6 +17,7 @@ interface AuthContextType {
   isAdminLoading: boolean;
   displayName: string | null;
   updateDisplayName: (name: string) => Promise<void>;
+  refreshAdminStatus: () => Promise<boolean>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -31,211 +33,160 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdminLoading, setIsAdminLoading] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
 
-  // Track ongoing admin checks to prevent duplicates
-  const ongoingAdminChecks = new Set<string>();
+  // Helper to extract display name from user metadata or email
+  const getDisplayName = useCallback((u: User) => {
+    return (
+      u.user_metadata?.display_name ||
+      u.user_metadata?.name ||
+      u.email?.split("@")[0] ||
+      "مستخدم"
+    );
+  }, []);
 
-  // Track previous user ID to avoid unnecessary admin checks
-  const prevUserIdRef = useRef<string | null>(null);
-
-  // Get admin emails from environment variables (more secure than hardcoding)
-  const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || "")
-    .split(",")
-    .map((email: string) => email.trim())
-    .filter(Boolean);
-
-  // Cache admin status in localStorage to avoid repeated checks
-  const ADMIN_STATUS_KEY = "molkhas_admin_status";
-  const ADMIN_USER_ID_KEY = "molkhas_admin_user_id";
-
-  const getCachedAdminStatus = (userId: string) => {
-    try {
-      const cachedUserId = localStorage.getItem(ADMIN_USER_ID_KEY);
-      const cachedStatus = localStorage.getItem(ADMIN_STATUS_KEY);
-
-      if (cachedUserId === userId && cachedStatus !== null) {
-        return JSON.parse(cachedStatus);
-      }
-    } catch (error) {
-      console.warn("Error reading admin status from cache:", error);
-    }
-    return null;
-  };
-
-  const setCachedAdminStatus = (userId: string, isAdmin: boolean) => {
-    try {
-      localStorage.setItem(ADMIN_USER_ID_KEY, userId);
-      localStorage.setItem(ADMIN_STATUS_KEY, JSON.stringify(isAdmin));
-    } catch (error) {
-      console.warn("Error caching admin status:", error);
-    }
-  };
-
-  const clearAdminCache = () => {
-    try {
-      localStorage.removeItem(ADMIN_STATUS_KEY);
-      localStorage.removeItem(ADMIN_USER_ID_KEY);
-    } catch (error) {
-      console.warn("Error clearing admin cache:", error);
-    }
-  };
-
-  const checkAdminStatus = async (currentUser: User | null) => {
-    if (!currentUser) {
+  // Centralized function to verify admin status
+  const verifyAdminStatus = useCallback(async (u: User | null) => {
+    if (!u) {
       setIsAdmin(false);
-      setDisplayName(null);
-      return;
+      setIsAdminLoading(false);
+      return false;
     }
 
-    // Set display name immediately (doesn't depend on database)
-    const customDisplayName = currentUser.user_metadata?.display_name;
-    const googleName = currentUser.user_metadata?.name;
-    const fallbackName = splitEmail(currentUser.email || "");
-    const displayName = customDisplayName || googleName || fallbackName;
-    setDisplayName(displayName);
-
-    // 🚀 IMMEDIATE ADMIN DETECTION - No database calls needed!
-    if (ADMIN_EMAILS.includes(currentUser.email || "")) {
+    // 1. Immediate check from metadata (Fastest)
+    const metadataRole = u.user_metadata?.role;
+    if (metadataRole === "admin") {
       setIsAdmin(true);
       setIsAdminLoading(false);
-      setCachedAdminStatus(currentUser.id, true); // Cache for future use
-      return;
+      return true;
     }
 
-    // Check if we already have an ongoing check for this user
-    if (ongoingAdminChecks.has(currentUser.id)) {
-      return;
-    }
-
-    // Mark this check as in progress
-    ongoingAdminChecks.add(currentUser.id);
-
-    // Check cache first
-    const cachedAdminStatus = getCachedAdminStatus(currentUser.id);
-    if (cachedAdminStatus !== null) {
-      setIsAdmin(cachedAdminStatus);
-      setIsAdminLoading(false);
-      return;
-    }
-
+    // 2. Background check from database (Reliable)
     setIsAdminLoading(true);
+    try {
+      const { data, error } = await Promise.race([
+        supabase.from("admins").select("user_id").eq("user_id", u.id).single(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Admin check timeout")), 5000)
+        ),
+      ]) as any;
 
-    // Check admin status immediately for better UX
-    const checkAdminNow = async () => {
-      // Store the user ID we're checking for to avoid race conditions
-      const checkedUserId = currentUser.id;
+      const isDbAdmin = !!data && !error;
+      setIsAdmin(isDbAdmin);
+      return isDbAdmin;
+    } catch (err) {
+      console.error("AuthContext: Admin check failed", err);
+      // Fallback to false but don't block the UI
+      setIsAdmin(false);
+      return false;
+    } finally {
+      setIsAdminLoading(false);
+    }
+  }, []);
 
+  // Public function to force refresh admin status
+  const refreshAdminStatus = async () => {
+    // Force refresh user to get latest metadata
+    const { data: { user: freshUser } } = await supabase.auth.getUser();
+    if (freshUser) setUser(freshUser);
+    return await verifyAdminStatus(freshUser);
+  };
+
+  // Initialize and listen to auth changes
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
       try {
-        console.log(
-          "🔍 Starting admin database check for user ID:",
-          checkedUserId
-        );
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted) return;
 
-        // Single efficient query: check if user exists in admins table
-        const { data: adminData, error: adminError } = await supabase
-          .from("admins")
-          .select("user_id")
-          .eq("user_id", checkedUserId)
-          .limit(1);
-
-        // Check if user is admin
-        const isAdminUser = !adminError && adminData && adminData.length > 0;
-
-        // Always cache the result for the checked user, regardless of current user state
-        setCachedAdminStatus(checkedUserId, isAdminUser);
-
-        // Only update state if we still have the same user
-        if (user?.id === checkedUserId) {
-          setIsAdmin(isAdminUser);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        setDisplayName(currentUser ? getDisplayName(currentUser) : null);
+        
+        // Start admin check but don't block initial loading
+        if (currentUser) {
+          verifyAdminStatus(currentUser);
         }
-      } catch (error) {
-        console.error("❌ Error checking admin status:", error);
-        // Keep isAdmin as false by default
+      } catch (err) {
+        console.error("AuthContext: Initialization failed", err);
       } finally {
-        setIsAdminLoading(false);
-        // Clean up the ongoing check tracking
-        ongoingAdminChecks.delete(checkedUserId);
+        if (mounted) setLoading(false);
       }
     };
 
-    // Execute check immediately
-    checkAdminNow();
-  };
+    initializeAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event: AuthChangeEvent, session: Session | null) => {
+        if (!mounted) return;
+
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        setDisplayName(currentUser ? getDisplayName(currentUser) : null);
+        setLoading(false);
+
+        if (currentUser) {
+          verifyAdminStatus(currentUser);
+          
+          // Analytics for sign in
+          if (event === "SIGNED_IN") {
+            chatHelpers.recordAnalytics({
+              userId: currentUser.id,
+              actionType: "ai_interaction",
+              contentType: "user_login",
+              metadata: { provider: currentUser.app_metadata?.provider || "email" },
+            }).catch(console.error);
+          }
+        } else {
+          setIsAdmin(false);
+          setIsAdminLoading(false);
+        }
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [getDisplayName, verifyAdminStatus]);
 
   const updateDisplayName = async (name: string) => {
     if (!user) throw new Error("No user logged in");
-
     const { error } = await supabase.auth.updateUser({
       data: { display_name: name },
     });
-
     if (error) throw error;
     setDisplayName(name);
   };
 
-  const splitEmail = (email: string) => {
-    return email.split("@")[0];
-  };
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      checkAdminStatus(currentUser);
-      setLoading(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      const currentUser = session?.user ?? null;
-
-      // Only check admin status if the user actually changed
-      const userChanged = prevUserIdRef.current !== currentUser?.id;
-
-      setUser(currentUser);
-      prevUserIdRef.current = currentUser?.id ?? null;
-
-      if (userChanged) {
-        checkAdminStatus(currentUser);
-      }
-
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
   };
 
   const signInWithGoogle = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/`,
-      },
+      options: { redirectTo: `${window.location.origin}/` },
     });
     if (error) throw error;
   };
 
   const signOut = async () => {
+    if (user) {
+      chatHelpers.recordAnalytics({
+        userId: user.id,
+        actionType: "user_logout",
+        contentType: "user_logout",
+      }).catch(console.error);
+    }
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
-    // Clear admin cache on sign out
-    clearAdminCache();
   };
 
   return (
@@ -247,6 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdminLoading,
         displayName,
         updateDisplayName,
+        refreshAdminStatus,
         signIn,
         signUp,
         signInWithGoogle,

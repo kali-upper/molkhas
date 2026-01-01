@@ -25,6 +25,9 @@ out/
 *.swo
 *~
 
+# CSS configuration files
+.cssrc.json
+
 # OS generated files
 .DS_Store
 .DS_Store?
@@ -94,3 +97,16 @@ temp/
 # Debug files
 tsc_output*.txt
 typecheck_output.txt
+API_KEYS_SETUP.md
+SECURITY_CHECKLIST.md
+.setup-supabase.sh
+.setup-supabase.ps1
+
+# Agent and IDE artifacts
+.gemini/
+.cursor/
+
+# Local data files
+data.txt
+data copy.txt
+*.sql

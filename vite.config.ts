@@ -42,22 +42,54 @@ export default defineConfig({
     })
   ],
   build: {
-    // Increase chunk size warning limit since we have code splitting
+    // Increase chunk size warning limit
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: {
+        manualChunks: (id) => {
           // Vendor chunks for better caching
-          'react-vendor': ['react', 'react-dom'],
-          'supabase-vendor': ['@supabase/supabase-js'],
-          'ui-vendor': ['lucide-react'],
-          'ai-vendor': ['@google/generative-ai'],
-          // Group contexts together
-          'contexts': ['./src/contexts/AuthContext', './src/contexts/ThemeContext', './src/contexts/ChatContext'],
-          // Group utilities together
-          'utils': ['./src/lib/supabase', './src/lib/gemini'],
-          // Group hooks together
-          'hooks': ['./src/hooks/useAppeals', './src/hooks/useNews', './src/hooks/useSummaries', './src/hooks/useNotifications'],
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'react-vendor';
+            }
+            if (id.includes('@supabase')) {
+              return 'supabase-vendor';
+            }
+            if (id.includes('lucide-react')) {
+              return 'ui-vendor';
+            }
+            if (id.includes('@google/generative-ai')) {
+              return 'ai-vendor';
+            }
+            // Group other large libraries
+            return 'vendor';
+          }
+
+          // Page-specific chunks
+          if (id.includes('pages/')) {
+            if (id.includes('Admin') || id.includes('Analytics')) {
+              return 'admin-pages';
+            }
+            if (id.includes('WhatsApp') || id.includes('Chat')) {
+              return 'chat-pages';
+            }
+            return 'main-pages';
+          }
+
+          // Component chunks
+          if (id.includes('components/')) {
+            return 'components';
+          }
+
+          // Context and hooks
+          if (id.includes('contexts/') || id.includes('hooks/')) {
+            return 'contexts-hooks';
+          }
+
+          // Utilities
+          if (id.includes('lib/') || id.includes('utils/')) {
+            return 'utils';
+          }
         }
       }
     },
@@ -67,8 +99,34 @@ export default defineConfig({
       compress: {
         drop_console: true, // Remove console.log in production
         drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug'], // Remove specific console methods
+        passes: 3, // More passes for better compression
+        unsafe: true, // Enable unsafe optimizations
+        unsafe_comps: true, // Optimize comparisons
+        unsafe_Function: true, // Optimize function calls
+        unsafe_math: true, // Optimize math operations
+        unsafe_symbols: true, // Optimize property access
+        unsafe_methods: true, // Optimize method calls
+        unsafe_proto: true, // Optimize prototype access
+        unsafe_regexp: true, // Optimize regular expressions
+        unsafe_undefined: true, // Optimize undefined checks
+      },
+      mangle: {
+        safari10: true, // Fix Safari 10/11 bugs
+        properties: {
+          regex: /^_[A-Za-z]/, // Mangle private properties
+        },
+      },
+      format: {
+        comments: false, // Remove all comments
       }
-    }
+    },
+    // Optimize CSS
+    cssMinify: true,
+    // Reduce bundle size
+    sourcemap: false, // Disable sourcemaps in production for smaller bundles
+    // Additional optimizations
+    reportCompressedSize: false, // Don't report compressed sizes to speed up build
   },
   optimizeDeps: {
     // Remove the lucide-react exclusion since we're including it in manual chunks
@@ -76,4 +134,15 @@ export default defineConfig({
   },
   // Ensure .env files are loaded from project root
   envPrefix: 'VITE_',
+
+  // Security headers for production
+  server: {
+    headers: {
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'X-XSS-Protection': '1; mode=block',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Permissions-Policy': 'geolocation=(), microphone=(), camera=()'
+    }
+  }
 });

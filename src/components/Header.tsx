@@ -56,10 +56,10 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
           {/* Navigation Bar */}
           <nav className="flex items-center gap-2 lg:gap-4 flex-shrink-0">
             {/* Desktop Navigation - Hidden on mobile, shown on tablet/desktop */}
-            <div className="hidden tablet:flex items-center gap-2 lg:gap-4">
+            <div className="hidden lg:flex items-center gap-2 xl:gap-4">
               <button
                 onClick={() => onNavigate("home")}
-                className={`px-3 py-2 tablet:px-4 tablet:py-3 rounded-lg text-sm tablet:text-base font-medium transition-colors ${
+                className={`px-3 py-2 lg:px-4 lg:py-3 rounded-lg text-sm lg:text-base font-medium transition-colors ${
                   currentPage === "home"
                     ? "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
                     : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -80,30 +80,6 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
               </button>
 
               <button
-                onClick={() => onNavigate("chat")}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  currentPage === "chat"
-                    ? "bg-purple-50 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                  />
-                </svg>
-                الدردشة
-              </button>
-
-              <button
                 onClick={() => onNavigate("whatsapp-upload")}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   currentPage === "whatsapp-upload" ||
@@ -113,7 +89,7 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
                 }`}
               >
                 <MessageSquare className="w-4 h-4" />
-                واتساب AI
+                AI assistant
               </button>
 
               <button
@@ -187,11 +163,14 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
                   </button>
                 </>
               )}
+            </div>
 
+            {/* Right side elements - Always visible */}
+            <div className="flex items-center gap-2">
               {/* Notifications Dropdown */}
               <NotificationDropdown />
 
-              {/* Theme Toggle Button - Desktop only */}
+              {/* Theme Toggle Button - Always visible */}
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -205,17 +184,11 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
                   <Moon className="w-5 h-5" />
                 )}
               </button>
-            </div>
-
-            {/* Right side elements - Always visible */}
-            <div className="flex items-center gap-2">
-              {/* Notifications Dropdown */}
-              <NotificationDropdown />
 
               {/* Mobile Menu Button - Mobile only, hidden on tablet+ */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="tablet:hidden p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="lg:hidden p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                 aria-label="قائمة التنقل"
               >
                 {isMobileMenuOpen ? (
@@ -230,7 +203,7 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
           {/* Mobile Menu */}
           {isMobileMenuOpen && (
             <div
-              className="tablet:hidden fixed inset-0 z-40 bg-black bg-opacity-50"
+              className="lg:hidden fixed inset-0 z-40 bg-black bg-opacity-50"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               <div
@@ -273,7 +246,7 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
                     }`}
                   >
                     <span>💬</span>
-                    <span>واتساب AI</span>
+                    <span>AI assistant</span>
                   </button>
 
                   <button

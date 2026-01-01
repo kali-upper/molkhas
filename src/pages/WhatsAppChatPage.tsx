@@ -315,61 +315,50 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
 
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Bot className="w-8 h-8 text-blue-600" />
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center space-x-3 min-w-0">
+            <Bot className="w-8 h-8 text-blue-600 flex-shrink-0" />
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white truncate">
                 WhatsApp AI Assistant
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {stats.totalMessages} messages loaded • AI:{" "}
-                {aiStatus.isAIWorking ? "✅ Active" : "⚠️ Fallback mode"}
-                {aiStatus.hasCustomApiKey && (
-                  <span className="ml-2 text-blue-600 dark:text-blue-400">
-                    🔑 Custom API
-                  </span>
-                )}
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
+                {stats.totalMessages} messages • AI:{" "}
+                {aiStatus.isAIWorking ? "✅ Active" : "⚠️ Fallback"}
               </p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             <button
               onClick={clearChat}
-              className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               title="Clear chat history"
             >
               <Trash2 className="w-4 h-4" />
             </button>
             <button
               onClick={openApiKeyModal}
-              className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
+              className="p-2 text-blue-600 hover:text-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
               title="Set custom API key"
             >
-              🔑 API Key
+              <span className="hidden sm:inline text-sm font-medium">API Key</span>
+              <span className="sm:hidden">🔑</span>
             </button>
-            {!aiStatus.isAIWorking && (
-              <button
-                onClick={reEnableAI}
-                className="px-3 py-1 text-sm text-green-600 hover:text-green-800"
-                title="Re-enable AI after quota reset"
-              >
-                🔄 Enable AI
-              </button>
-            )}
             <button
               onClick={reloadData}
-              className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
+              className="p-2 text-blue-600 hover:text-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
               title="Reload latest data from GitHub"
             >
-              🔄 Reload Data
+              <span className="hidden sm:inline text-sm font-medium">Reload</span>
+              <span className="sm:hidden">🔄</span>
             </button>
             <button
               onClick={clearData}
-              className="px-3 py-1 text-sm text-red-600 hover:text-red-800"
+              className="p-2 text-red-600 hover:text-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
               title="Clear all data and upload new chat"
             >
-              Clear Data
+              <span className="hidden sm:inline text-sm font-medium">Reset</span>
+              <span className="sm:hidden">❌</span>
             </button>
           </div>
         </div>

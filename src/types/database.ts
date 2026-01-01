@@ -90,10 +90,12 @@ export type Database = {
           id: string
           content_id: string
           content_type: 'summary' | 'news'
+          content_title: string | null
           reason: string
           description: string | null
-          status: 'pending' | 'reviewed' | 'resolved' | 'dismissed'
+          status: 'pending' | 'accepted' | 'rejected'
           created_by: string | null
+          reviewed_by: string | null
           created_at: string
           updated_at: string
         }
@@ -101,10 +103,12 @@ export type Database = {
           id?: string
           content_id: string
           content_type: 'summary' | 'news'
+          content_title?: string | null
           reason: string
           description?: string | null
-          status?: 'pending' | 'reviewed' | 'resolved' | 'dismissed'
+          status?: 'pending' | 'accepted' | 'rejected'
           created_by?: string | null
+          reviewed_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -112,10 +116,12 @@ export type Database = {
           id?: string
           content_id?: string
           content_type?: 'summary' | 'news'
+          content_title?: string | null
           reason?: string
           description?: string | null
-          status?: 'pending' | 'reviewed' | 'resolved' | 'dismissed'
+          status?: 'pending' | 'accepted' | 'rejected'
           created_by?: string | null
+          reviewed_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -126,7 +132,7 @@ export type Database = {
           user_id: string
           title: string
           message: string
-          type: 'admin_submission' | 'content_published' | 'system'
+          type: 'admin_submission' | 'content_published' | 'system' | 'appeal_status_update'
           related_id: string | null
           related_type: 'summary' | 'news' | 'appeal' | null
           read: boolean
@@ -138,7 +144,7 @@ export type Database = {
           user_id: string
           title: string
           message: string
-          type: 'admin_submission' | 'content_published' | 'system'
+          type: 'admin_submission' | 'content_published' | 'system' | 'appeal_status_update'
           related_id?: string | null
           related_type?: 'summary' | 'news' | 'appeal' | null
           read?: boolean

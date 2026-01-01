@@ -13,30 +13,113 @@ function LoginPage({ onNavigate }: LoginPageProps) {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+  const [attempts, setAttempts] = useState(0);
+  const [lockoutTime, setLockoutTime] = useState(0);
 
+  // Auto navigate when user is successfully logged in
   // Auto navigate when user is successfully logged in
   useEffect(() => {
     if (user) {
       // Small delay to ensure state is fully updated
-      setTimeout(() => {
-        onNavigate("home");
+      const timer = setTimeout(() => {
+        // Check if we should redirect to admin dashboard
+        // We need to check the user metadata directly as isAdmin might not be updated yet
+        const role = user.user_metadata?.role;
+        if (role === 'admin') {
+          onNavigate("admin");
+        } else {
+          onNavigate("home");
+        }
       }, 500);
+      return () => clearTimeout(timer);
     }
   }, [user, onNavigate]);
 
+  // Load attempts from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("login_attempts");
+      if (stored) {
+        const { count, timestamp } = JSON.parse(stored);
+        const timeDiff = Date.now() - timestamp;
+        const lockoutDuration = Math.min(count * 30000, 300000); // Max 5 minutes
+
+        if (timeDiff < lockoutDuration) {
+          setAttempts(count);
+          setLockoutTime(lockoutDuration - timeDiff);
+        } else {
+          // Reset if lockout expired
+          localStorage.removeItem("login_attempts");
+        }
+      }
+    } catch (error) {
+      console.warn("Error loading login attempts:", error);
+    }
+  }, []);
+
+  // Countdown timer for lockout
+  useEffect(() => {
+    if (lockoutTime > 0) {
+      const timer = setTimeout(() => {
+        setLockoutTime((prev) => Math.max(0, prev - 1000));
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [lockoutTime]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if user is locked out
+    if (lockoutTime > 0) {
+      setError(
+        `تم تعليق المحاولات. انتظر ${Math.ceil(lockoutTime / 1000)} ثانية`
+      );
+      return;
+    }
+
     setLoading(true);
     setError("");
 
     try {
       await signIn(email, password);
+
+      // Reset attempts on successful login
+      setAttempts(0);
+      setLockoutTime(0);
+      localStorage.removeItem("login_attempts");
+
       // Don't navigate immediately - let AuthContext handle the state update
-      // The app will automatically show the appropriate page based on user state
       console.log("Login successful, waiting for state update...");
     } catch (err) {
       console.error("Error signing in:", err);
-      setError("خطأ في البريد الإلكتروني أو كلمة المرور");
+
+      // Increment attempts and set lockout
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+
+      // Store in localStorage for persistence
+      const lockoutDuration = Math.min(newAttempts * 30000, 300000); // Max 5 minutes
+      localStorage.setItem(
+        "login_attempts",
+        JSON.stringify({
+          count: newAttempts,
+          timestamp: Date.now(),
+        })
+      );
+
+      if (newAttempts >= 3) {
+        setLockoutTime(lockoutDuration);
+        setError(
+          `تم تعليق المحاولات بسبب محاولات فاشلة متكررة. انتظر ${Math.ceil(
+            lockoutDuration / 1000
+          )} ثانية`
+        );
+      } else {
+        setError(
+          `خطأ في البريد الإلكتروني أو كلمة المرور (${newAttempts}/3 محاولات)`
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -79,12 +162,18 @@ function LoginPage({ onNavigate }: LoginPageProps) {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="login-email"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               البريد الإلكتروني
             </label>
             <input
+              id="login-email"
+              name="email"
               type="email"
               required
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
@@ -93,12 +182,18 @@ function LoginPage({ onNavigate }: LoginPageProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="login-password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               كلمة المرور
             </label>
             <input
+              id="login-password"
+              name="password"
               type="password"
               required
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"

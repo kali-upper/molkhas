@@ -29,8 +29,8 @@ Write-Host "Setup complete!" -ForegroundColor Green
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host "1. Create a .env file with your Supabase credentials:" -ForegroundColor White
-Write-Host "   VITE_SUPABASE_URL=https://jcufigozkhxazjbwhjjm.supabase.co" -ForegroundColor White
-Write-Host "   VITE_SUPABASE_ANON_KEY=sb_publishable_uJAV3NEF7ox4mzxkaI9iRg_uHIQ5mTn" -ForegroundColor White
+Write-Host "   VITE_SUPABASE_URL=your_supabase_project_url_here" -ForegroundColor White
+Write-Host "   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here" -ForegroundColor White
 Write-Host ""
 Write-Host "2. Your app should now work with the database!" -ForegroundColor Green
 Write-Host "3. Run 'npm run dev' to start the development server" -ForegroundColor Green

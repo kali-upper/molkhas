@@ -64,6 +64,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               "Service Worker registered for notifications:",
               registration
             );
+            // Force update service worker to avoid cached issues
+            registration.update();
           })
           .catch((error) => {
             console.error("Service Worker registration failed:", error);
@@ -388,50 +390,74 @@ export function NotificationSettings() {
       {permission === "granted" && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="new-summaries-notification"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               ملخصات جديدة
             </label>
             <input
+              id="new-summaries-notification"
+              name="newSummariesNotification"
               type="checkbox"
               checked={settings.newSummaries}
               onChange={(e) => updateSetting("newSummaries", e.target.checked)}
               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              autoComplete="off"
             />
           </div>
 
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="new-news-notification"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               أخبار جديدة
             </label>
             <input
+              id="new-news-notification"
+              name="newNewsNotification"
               type="checkbox"
               checked={settings.newNews}
               onChange={(e) => updateSetting("newNews", e.target.checked)}
               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              autoComplete="off"
             />
           </div>
 
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="appeals-notification"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               الاستفسارات الجديدة
             </label>
             <input
+              id="appeals-notification"
+              name="appealsNotification"
               type="checkbox"
               checked={settings.appeals}
               onChange={(e) => updateSetting("appeals", e.target.checked)}
               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              autoComplete="off"
             />
           </div>
 
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="system-updates-notification"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               تحديثات النظام
             </label>
             <input
+              id="system-updates-notification"
+              name="systemUpdatesNotification"
               type="checkbox"
               checked={settings.systemUpdates}
               onChange={(e) => updateSetting("systemUpdates", e.target.checked)}
               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              autoComplete="off"
             />
           </div>
         </div>

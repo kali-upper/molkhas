@@ -1,46 +1,11 @@
-// Lazy import Google Generative AI to avoid bundling conflicts
-let GoogleGenerativeAI: any = null;
+// Note: Gemini API calls are now handled securely via Supabase Edge Function
+// No longer using direct Google Generative AI client for security reasons
 
 // متغير لتتبع حالة الـ AI
 let isAIWorking = true;
 
-// Initialize Gemini API - Check localStorage first, then environment
-const customApiKey = localStorage.getItem('user_gemini_api_key');
-const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
-const GEMINI_API_KEY = customApiKey || envApiKey;
-
-console.log('🔑 Custom API key in localStorage:', customApiKey ? 'YES' : 'NO');
-console.log('🔑 Environment API key:', envApiKey ? 'YES' : 'NO');
-console.log('🔑 Final API key loaded:', GEMINI_API_KEY ? 'YES' : 'NO');
-console.log('🔑 Using custom API key:', !!customApiKey);
-
-if (!GEMINI_API_KEY) {
-  console.warn('⚠️ VITE_GEMINI_API_KEY environment variable is not set - WhatsApp AI features will be disabled');
-  isAIWorking = false;
-}
-
-let genAI: any = null;
-let model: any = null;
-
-// Lazy initialization function
-async function initializeGemini(): Promise<void> {
-  if (genAI && model) return; // Already initialized
-
-  try {
-    // Dynamic import to avoid bundling conflicts
-    const { GoogleGenerativeAI: GAI } = await import('@google/generative-ai');
-    GoogleGenerativeAI = GAI;
-
-    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    console.log('✅ Gemini model initialized successfully');
-  } catch (error: unknown) {
-    console.error('❌ Error initializing Gemini model:', error);
-      console.log('💡 Make sure your API key is valid and has proper permissions');
-      isAIWorking = false;
-      throw error;
-    }
-}
+// Note: Gemini initialization is now handled securely in Supabase Edge Function
+// No longer need client-side initialization for security reasons
 
 // Lazy initialization will happen when first needed
 console.log('⏸️ Skipping Gemini initialization during module load - will initialize lazily when needed');
@@ -221,14 +186,8 @@ export class WhatsAppAssistant {
 
 
 
-  // Filter response for safety (مُعطل مؤقتًا لأن الرسائل مفلترة مسبقًا)
-  private filterResponseForSafety(response: string): string {
-    // بما أن الرسائل المصدر مفلترة بالفعل، لا نحتاج فلترة إضافية صارمة
-    // لكن نحتفظ بالدالة للأمان المستقبلي
-    return response;
-  }
 
-  // Generate AI response using relevant context
+  // Generate AI response using secure Supabase Edge Function
   async generateResponse(query: string): Promise<string> {
     console.log('🤖 Starting generateResponse for query:', query);
     console.log('📊 Total chat chunks available:', this.chatChunks.length);
@@ -241,238 +200,48 @@ export class WhatsAppAssistant {
       return `لم أجد معلومات ذات صلة في محادثات المجموعة (${totalMessages} رسائل متاحة) للإجابة على سؤالك. يرجى:\n\n1. إعادة صياغة السؤال بطريقة مختلفة\n2. التأكد من أن المحادثات تحتوي على معلومات حول هذا الموضوع\n3. تحميل محادثات واتساب أكثر شمولاً إذا لزم الأمر.\n\n💡 جرب أسئلة مثل: "متى موعد الامتحان؟" أو "ما هي متطلبات المادة؟"`;
     }
 
-    // Check if Gemini is available and working
-    if (!GEMINI_API_KEY || !model) {
-      console.log('⚠️ Gemini not available (no API key or model), using fallback');
+    try {
+      // Note: Authentication is handled by Supabase Edge Function
+      const userId = null; // Will be handled by Edge Function
 
-      // Only show relevant chunks with strict relevance check
-      console.log('🔍 Checking relevance for query:', query);
-      console.log('📊 Total relevant chunks found:', relevantChunks.length);
+      // Call Supabase Edge Function instead of direct API
+      const { supabase } = await import('./supabase');
 
-      const highlyRelevantChunks = relevantChunks.filter(chunk => {
-        // Skip chunks that are too long (likely entire summaries)
-        if (chunk.content.length > 2000) {
-          console.log('⚠️ Skipping overly long chunk:', chunk.content.substring(0, 100) + '...');
-          return false;
+      console.log('🚀 Calling Supabase Edge Function...');
+
+      const { data, error } = await supabase.functions.invoke('gemini-chat', {
+        body: {
+          query,
+          relevantChunks,
+          userId
         }
-
-        const contentLower = chunk.content.toLowerCase();
-        const queryLower = query.toLowerCase();
-        let score = 0;
-
-        // Exact phrase match gets highest score
-        if (contentLower.includes(queryLower)) score += 15;
-
-        const queryWords = queryLower.split(/\s+/);
-        let exactWordMatches = 0;
-
-        for (const word of queryWords) {
-          if (word.length > 1) {
-            const wordRegex = new RegExp(`\\b${word}\\b`, 'i');
-            if (wordRegex.test(contentLower)) {
-              score += 5; // Higher score for word boundary matches
-              exactWordMatches++;
-            } else if (contentLower.includes(word)) {
-              score += 1; // Very low score for partial matches
-            }
-          }
-        }
-
-        // For Arabic questions, require at least 2 key words to match
-        const arabicQuestionWords = ['متى', 'كيف', 'ما', 'أين', 'من', 'لماذا', 'كم', 'مين'];
-        const hasQuestionWord = arabicQuestionWords.some(word => queryLower.includes(word));
-
-        if (hasQuestionWord) {
-          // For questions, require at least 2 exact word matches OR high relevance score
-          const isRelevant = score >= 12 || (exactWordMatches >= 2 && score >= 8);
-          console.log(`🔍 Question "${query}" - Chunk relevance:`, {
-            score,
-            exactWordMatches,
-            contentPreview: chunk.content.substring(0, 100),
-            isRelevant
-          });
-          return isRelevant;
-        }
-
-        // For non-questions, require higher relevance
-        return score >= 15;
       });
 
-      console.log('✅ Highly relevant chunks after filtering:', highlyRelevantChunks.length);
-
-      if (highlyRelevantChunks.length === 0) {
-        const statusMessage = !GEMINI_API_KEY
-          ? "مفتاح API غير مُعد - اضف مفتاح API مخصص عبر زر '🔑 API Key'"
-          : "مشكلة في تحميل نموذج الذكاء الاصطناعي";
-        return `عذراً، لا أستطيع الإجابة على سؤالك حالياً بسبب ${statusMessage}. جرب إعادة صياغة السؤال أو أضف مفتاح API مخصص للحصول على إجابات أفضل.`;
+      if (error) {
+        console.error('❌ Edge Function error:', error);
+        throw error;
       }
 
-      // Enhanced fallback: Show only highly relevant messages (max 3)
-      const context = highlyRelevantChunks
+      console.log('✅ Edge Function response received');
+      return data.response;
+
+    } catch (error: unknown) {
+      console.error('❌ Error calling Edge Function:', error);
+
+      // Fallback to showing relevant chunks
+      console.log('📋 Using fallback - showing relevant chunks');
+
+      const context = relevantChunks
         .slice(0, 3)
         .map(chunk => `${chunk.author || 'مستخدم'}: ${chunk.content}`)
         .join('\n\n');
 
-      const statusMessage = !GEMINI_API_KEY
-        ? "مفتاح API غير مُعد - اضف مفتاح API مخصص عبر زر '🔑 API Key'"
-        : "مشكلة في تحميل نموذج الذكاء الاصطناعي";
-
-      return `بناءً على المحادثات المتاحة، إليك المعلومات ذات الصلة:\n\n${context}\n\n⚠️ ${statusMessage}`;
-    }
-
-    // If AI was disabled due to previous error, try to re-enable it
-    if (!isAIWorking) {
-      console.log('🔄 AI was disabled, attempting to re-enable...');
-      try {
-        // Ensure Gemini is initialized
-        await initializeGemini();
-        // Quick test to see if AI is working now
-        const testResult = await model.generateContent('Test if AI is working');
-        await testResult.response;
-        isAIWorking = true;
-        localStorage.setItem('gemini_api_status', 'working');
-        localStorage.removeItem('gemini_quota_error');
-        console.log('✅ AI re-enabled successfully');
-      } catch (testError: unknown) {
-        console.log('❌ AI still not working, staying in fallback mode');
-
-        // Only show relevant chunks with strict relevance check
-        const highlyRelevantChunks = relevantChunks.filter(chunk => {
-          // Skip chunks that are too long (likely entire summaries)
-          if (chunk.content.length > 2000) {
-            return false;
-          }
-
-          const contentLower = chunk.content.toLowerCase();
-          const queryLower = query.toLowerCase();
-          let score = 0;
-
-          // Exact phrase match gets highest score
-          if (contentLower.includes(queryLower)) score += 15;
-
-          const queryWords = queryLower.split(/\s+/);
-          let exactWordMatches = 0;
-
-          for (const word of queryWords) {
-            if (word.length > 1) {
-              const wordRegex = new RegExp(`\\b${word}\\b`, 'i');
-              if (wordRegex.test(contentLower)) {
-                score += 5; // Higher score for word boundary matches
-                exactWordMatches++;
-              } else if (contentLower.includes(word)) {
-                score += 1; // Very low score for partial matches
-              }
-            }
-          }
-
-          // For Arabic questions, require at least 2 key words to match
-          const arabicQuestionWords = ['متى', 'كيف', 'ما', 'أين', 'من', 'لماذا', 'كم', 'مين'];
-          const hasQuestionWord = arabicQuestionWords.some(word => queryLower.includes(word));
-
-          if (hasQuestionWord) {
-            // For questions, require at least 2 exact word matches OR high relevance score
-            return score >= 12 || (exactWordMatches >= 2 && score >= 8);
-          }
-
-          // For non-questions, require higher relevance
-          return score >= 15;
-        });
-
-      console.log('✅ Highly relevant chunks after filtering:', highlyRelevantChunks.length);
-
-        const testErrorMsg = testError instanceof Error ? testError.message : String(testError);
-
-        if (highlyRelevantChunks.length === 0) {
-          if (testErrorMsg.includes('429') || testErrorMsg.includes('quota')) {
-            const quotaReset = new Date();
-            quotaReset.setHours(24, 0, 0, 0);
-            const hoursLeft = Math.ceil((quotaReset.getTime() - new Date().getTime()) / (1000 * 60 * 60));
-            return `⏰ تم تجاوز الحد المسموح (20 طلب يومياً). ${hoursLeft} ساعة حتى إعادة التعيين.\n💡 للحصول على إجابات ذكية، أضف مفتاح API مخصص عبر زر "🔑 API Key" لتحصل على حد أعلى (60+ طلب يومياً).`;
-          } else {
-            return `⚠️ الذكاء الاصطناعي غير متاح حالياً بسبب مشكلة تقنية. جرب إعادة تحميل الصفحة أو أضف مفتاح API مخصص.`;
-          }
-        }
-
-        // Enhanced fallback: Show only highly relevant messages (max 3)
-        const context = highlyRelevantChunks
-          .slice(0, 3)
-          .map(chunk => `${chunk.author || 'مستخدم'}: ${chunk.content}`)
-          .join('\n\n');
-
-        if (testErrorMsg.includes('429') || testErrorMsg.includes('quota')) {
-          const quotaReset = new Date();
-          quotaReset.setHours(24, 0, 0, 0);
-          const hoursLeft = Math.ceil((quotaReset.getTime() - new Date().getTime()) / (1000 * 60 * 60));
-
-          return `بناءً على المحادثات المتاحة، إليك المعلومات ذات الصلة:\n\n${context}\n\n⏰ تم تجاوز الحد المسموح (20 طلب يومياً). ${hoursLeft} ساعة حتى إعادة التعيين.\n💡 للحصول على إجابات ذكية، أضف مفتاح API مخصص عبر زر "🔑 API Key" لتحصل على حد أعلى (60+ طلب يومياً).`;
-        } else {
-          return `بناءً على المحادثات المتاحة، إليك المعلومات ذات الصلة:\n\n${context}\n\n⚠️ الذكاء الاصطناعي غير متاح حالياً بسبب مشكلة تقنية. جرب إعادة تحميل الصفحة أو أضف مفتاح API مخصص.`;
-        }
-      }
-    }
-
-    // Prepare context from relevant chunks
-    const context = relevantChunks
-      .map(chunk => `[${chunk.timestamp || 'Unknown time'}] ${chunk.author || 'Unknown'}: ${chunk.content}`)
-      .join('\n\n');
-
-    const prompt = `أنت مساعد ذكي مفيد يجيب عن الأسئلة بناءً على محادثات مجموعة واتساب جامعية باللغة العربية.
-
-السياق من محادثات المجموعة:
-${context}
-
-سؤال المستخدم: ${query}
-
-يرجى تقديم إجابة مفيدة ودقيقة باللغة العربية بناءً على المحادثات أعلاه. إذا لم يمكن الإجابة من السياق المتاح، قل ذلك بلباقة.
-
-تعليمات مهمة:
-- ركز على المعلومات التعليمية والجامعية فقط
-- كن ودودًا ومحترمًا في الرد
-- أشر إلى الرسائل أو الأشخاص المحددين عند الاقتضاء
-- إذا كان السؤال عن موعد امتحان أو تفاصيل مادة، قدم المعلومات بشكل مباشر
-- تجاهل أي محتوى غير لائق أو هزلي في السياق`;
-
-    try {
-      // Ensure Gemini is initialized before using it
-      await initializeGemini();
-
-      console.log('🚀 Calling Gemini AI with prompt length:', prompt.length);
-      console.log('🔑 API Key present:', GEMINI_API_KEY ? 'YES' : 'NO');
-
-      const result = await model.generateContent(prompt);
-      console.log('✅ Gemini API call successful');
-
-      const response = await result.response;
-      const aiResponse = response.text();
-      console.log('📝 AI Response received, length:', aiResponse.length);
-      console.log('📝 AI Response preview:', aiResponse.substring(0, 100) + '...');
-
-      return this.filterResponseForSafety(aiResponse);
-    } catch (error: unknown) {
-      console.error('❌ Error generating Gemini response:', error);
-
-      // Update AI status on error
-      isAIWorking = false;
-
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      // More detailed error messages based on error type
-      if (errorMessage.includes('API_KEY') || errorMessage.includes('api key')) {
-        return "❌ مشكلة في مفتاح API: تأكد من صحة مفتاح Google Gemini API في متغيرات البيئة.";
-      } else if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('limit')) {
-        localStorage.setItem('gemini_quota_error', new Date().toISOString());
-        const quotaReset = new Date();
-        quotaReset.setHours(24, 0, 0, 0); // Next midnight UTC
-
-        const hoursLeft = Math.ceil((quotaReset.getTime() - new Date().getTime()) / (1000 * 60 * 60));
-
-        return `⏰ تم تجاوز الحد المسموح للاستخدام المجاني (20 طلب يومياً).\n\n📊 الحالة الحالية:\n• تم استخدام جميع الطلبات المسموحة اليوم\n• إعادة التعيين التلقائي: ${quotaReset.toLocaleString('ar-SA')}\n• الوقت المتبقي: ${hoursLeft} ساعة تقريباً\n\n💡 الحلول:\n• انتظر حتى منتصف الليل لإعادة التعيين التلقائي\n• أضف بطاقة ائتمان لترقية الخطة المجانية\n• استخدم النظام البديل حالياً (يعرض الرسائل ذات الصلة)\n\n🔗 لترقية الخطة: https://ai.google.dev/gemini-api/docs/rate-limits`;
-      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
-        return "🌐 مشكلة في الاتصال بالإنترنت. تأكد من اتصالك ثم أعد المحاولة.";
-      } else if (errorMessage.includes('model') || errorMessage.includes('not found')) {
-        return "🤖 مشكلة في نموذج الذكاء الاصطناعي. قد يكون النموذج غير متاح حالياً.";
+      if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+        return `⏰ جميع مفاتيح API المتاحة انتهت حدودها اليومية!\n\nبناءً على المحادثات المتاحة، إليك المعلومات ذات الصلة:\n\n${context}\n\n💡 انتظر 24 ساعة لإعادة التعيين التلقائي أو أضف بطاقة ائتمان لترقية الخطة.`;
       } else {
-        return `❌ حدث خطأ تقني: ${errorMessage}\n\n💡 جرب إعادة تحميل الصفحة أو المحاولة مرة أخرى. إذا استمر الخطأ، تأكد من صحة مفتاح API.`;
+        return `⚠️ مشكلة في خدمة الذكاء الاصطناعي حالياً.\n\nبناءً على المحادثات المتاحة، إليك المعلومات ذات الصلة:\n\n${context}\n\n💡 جرب إعادة تحميل الصفحة أو المحاولة مرة أخرى لاحقاً.`;
       }
     }
   }
@@ -498,42 +267,58 @@ ${context}
 
   // Check AI status
   getAIStatus() {
-    const quotaReset = localStorage.getItem('gemini_quota_reset');
-    const now = new Date();
-    const resetTime = quotaReset ? new Date(quotaReset) : null;
-    const timeUntilReset = resetTime ? Math.max(0, resetTime.getTime() - now.getTime()) : 0;
-    const hoursUntilReset = Math.ceil(timeUntilReset / (1000 * 60 * 60));
     const customApiKey = localStorage.getItem('user_gemini_api_key');
+    const quotaErrorTimestamp = localStorage.getItem('gemini_quota_error');
+
+    // Calculate hours until quota reset (24 hours from quota error)
+    let hoursUntilReset = 0;
+    if (quotaErrorTimestamp) {
+      const errorTime = new Date(quotaErrorTimestamp).getTime();
+      const now = Date.now();
+      const resetTime = errorTime + (24 * 60 * 60 * 1000); // 24 hours in milliseconds
+      const msUntilReset = resetTime - now;
+      hoursUntilReset = Math.max(0, Math.ceil(msUntilReset / (60 * 60 * 1000)));
+    }
 
     return {
       isAIWorking,
-      hasApiKey: !!GEMINI_API_KEY,
+      hasApiKey: true, // Edge Function handles API keys securely
       hasCustomApiKey: !!customApiKey,
       customApiKeyMasked: customApiKey ? `${customApiKey.substring(0, 8)}...${customApiKey.substring(customApiKey.length - 4)}` : null,
-      hasModel: !!model || !!GoogleGenerativeAI, // Check if library is loaded or model is initialized
+      hasModel: true, // Edge Function handles model initialization
       lastQuotaError: localStorage.getItem('gemini_quota_error'),
-      quotaResetTime: quotaReset,
-      hoursUntilReset: hoursUntilReset > 0 ? hoursUntilReset : 0,
-      status: localStorage.getItem('gemini_api_status')
+      hoursUntilReset,
+      status: 'secure_edge_function', // Indicate secure implementation
     };
   }
 
   // Force re-enable AI (useful after quota reset)
   async forceReEnableAI(): Promise<boolean> {
-    if (!GEMINI_API_KEY) return false;
-
     try {
-      // Ensure Gemini is initialized
-      await initializeGemini();
-
       console.log('🔄 Force re-enabling AI...');
-      const testResult = await model.generateContent('Test');
-      await testResult.response;
+
+      // Test the Edge Function instead of direct API
+      const { supabase } = await import('./supabase');
+
+      const { error } = await supabase.functions.invoke('gemini-chat', {
+        body: {
+          query: 'test',
+          relevantChunks: [{ content: 'test', author: 'system' }],
+          userId: null
+        }
+      });
+
+      if (error) {
+        console.log('❌ Edge Function test failed:', error);
+        localStorage.setItem('gemini_api_status', 'error');
+        return false;
+      }
+
       isAIWorking = true;
       localStorage.setItem('gemini_api_status', 'working');
       localStorage.removeItem('gemini_quota_error');
       localStorage.setItem('gemini_last_test', Date.now().toString());
-      console.log('✅ AI re-enabled successfully');
+      console.log('✅ AI re-enabled successfully via Edge Function');
       return true;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -554,7 +339,7 @@ ${context}
     console.log('🔄 Loading WhatsApp data from GitHub...');
 
     const filesToLoad = [
-      'https://raw.githubusercontent.com/kali-upper/Molkhas-app/refs/heads/master/data.txt'
+      'https://raw.githubusercontent.com/kali-upper/whatsapp-group/refs/heads/main/data.txt'
     ];
 
     let totalLoaded = 0;
@@ -620,22 +405,22 @@ ${context}
     return this.loadAllData();
   }
 
-  // Method to reinitialize Gemini with new API key
+  // Method to reinitialize Gemini API status (for Edge Function system)
   async reinitializeGemini(): Promise<void> {
-    console.log('🔄 Reinitializing Gemini API...');
-
-    // Reset the module-level variables to force re-initialization
-    genAI = null;
-    model = null;
-    GoogleGenerativeAI = null;
+    console.log('🔄 Reinitializing Gemini API status...');
 
     try {
-      await initializeGemini();
+      // Clear any cached API key status
+      localStorage.removeItem('gemini_api_status');
+      localStorage.removeItem('gemini_quota_error');
+      localStorage.removeItem('gemini_last_test');
+
+      // Reset to default state
       isAIWorking = true;
       localStorage.setItem('gemini_api_status', 'working');
-      console.log('✅ Gemini reinitialized successfully');
+      console.log('✅ Gemini API status reinitialized successfully');
     } catch (error: unknown) {
-      console.error('❌ Error reinitializing Gemini:', error);
+      console.error('❌ Error reinitializing Gemini API status:', error);
       isAIWorking = false;
     }
   }

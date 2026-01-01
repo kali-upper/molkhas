@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { UserPlus, Mail, Lock, ArrowLeft } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -15,11 +15,53 @@ function SignUpPage({ onNavigate }: SignUpPageProps) {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [attempts, setAttempts] = useState(0);
+  const [lockoutTime, setLockoutTime] = useState(0);
+
+  // Load attempts from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("signup_attempts");
+      if (stored) {
+        const { count, timestamp } = JSON.parse(stored);
+        const timeDiff = Date.now() - timestamp;
+        const lockoutDuration = Math.min(count * 30000, 300000); // Max 5 minutes
+
+        if (timeDiff < lockoutDuration) {
+          setAttempts(count);
+          setLockoutTime(lockoutDuration - timeDiff);
+        } else {
+          // Reset if lockout expired
+          localStorage.removeItem("signup_attempts");
+        }
+      }
+    } catch (error) {
+      console.warn("Error loading signup attempts:", error);
+    }
+  }, []);
+
+  // Countdown timer for lockout
+  useEffect(() => {
+    if (lockoutTime > 0) {
+      const timer = setTimeout(() => {
+        setLockoutTime((prev) => Math.max(0, prev - 1000));
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [lockoutTime]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+
+    // Check if user is locked out
+    if (lockoutTime > 0) {
+      setError(
+        `تم تعليق المحاولات. انتظر ${Math.ceil(lockoutTime / 1000)} ثانية`
+      );
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("كلمة المرور غير متطابقة");
@@ -41,14 +83,48 @@ function SignUpPage({ onNavigate }: SignUpPageProps) {
       setEmail("");
       setPassword("");
       setConfirmPassword("");
+
+      // Reset attempts on successful signup
+      setAttempts(0);
+      setLockoutTime(0);
+      localStorage.removeItem("signup_attempts");
     } catch (err: unknown) {
       console.error("Error signing up:", err);
-      if (err instanceof Error && err.message?.includes("already registered")) {
+
+      // Increment attempts and set lockout
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+
+      // Store in localStorage for persistence
+      const lockoutDuration = Math.min(newAttempts * 30000, 300000); // Max 5 minutes
+      localStorage.setItem(
+        "signup_attempts",
+        JSON.stringify({
+          count: newAttempts,
+          timestamp: Date.now(),
+        })
+      );
+
+      if (newAttempts >= 3) {
+        setLockoutTime(lockoutDuration);
         setError(
-          "هذا البريد الإلكتروني مسجل بالفعل. جرب تسجيل الدخول بدلاً من ذلك."
+          `تم تعليق المحاولات بسبب محاولات فاشلة متكررة. انتظر ${Math.ceil(
+            lockoutDuration / 1000
+          )} ثانية`
         );
       } else {
-        setError("حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى.");
+        if (
+          err instanceof Error &&
+          err.message?.includes("already registered")
+        ) {
+          setError(
+            "هذا البريد الإلكتروني مسجل بالفعل. جرب تسجيل الدخول بدلاً من ذلك."
+          );
+        } else {
+          setError(
+            `حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى. (${newAttempts}/3 محاولات)`
+          );
+        }
       }
     } finally {
       setLoading(false);
@@ -97,13 +173,19 @@ function SignUpPage({ onNavigate }: SignUpPageProps) {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="signup-email"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               البريد الإلكتروني
             </label>
             <div className="relative">
               <input
+                id="signup-email"
+                name="email"
                 type="email"
                 required
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pr-10 pl-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
@@ -114,13 +196,19 @@ function SignUpPage({ onNavigate }: SignUpPageProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="signup-password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               كلمة المرور
             </label>
             <div className="relative">
               <input
+                id="signup-password"
+                name="password"
                 type="password"
                 required
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pr-10 pl-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
@@ -132,13 +220,19 @@ function SignUpPage({ onNavigate }: SignUpPageProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="signup-confirm-password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               تأكيد كلمة المرور
             </label>
             <div className="relative">
               <input
+                id="signup-confirm-password"
+                name="confirmPassword"
                 type="password"
                 required
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full pr-10 pl-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"

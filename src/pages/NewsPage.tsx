@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Trash } from "lucide-react";
 import {
   Newspaper,
   Plus,
@@ -7,9 +8,9 @@ import {
   Search,
   Flag,
 } from "lucide-react";
-import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useNotifications } from "../hooks/useNotifications";
+import { useNews } from "../hooks/useNews";
 import { News } from "../types/database";
 import { AppealFormModal } from "../components/AppealFormModal";
 
@@ -21,19 +22,21 @@ interface NewsPageProps {
 }
 
 function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { notifyAdmins, notifyAllUsers } = useNotifications();
-  const [news, setNews] = useState<NewsItem[]>([]);
+  const {
+    news,
+    loading,
+    showAddNews,
+    setShowAddNews,
+    newNews,
+    setNewNews,
+    addNews,
+    deleteNews,
+  } = useNews();
   const [filteredNews, setFilteredNews] = useState<NewsItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newNews, setNewNews] = useState({
-    title: "",
-    content: "",
-    type: "announcement" as NewsItem["type"],
-  });
   const [submitting, setSubmitting] = useState(false);
   const [appealModal, setAppealModal] = useState<{
     isOpen: boolean;
@@ -59,32 +62,8 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
   ];
 
   useEffect(() => {
-    fetchNews();
-  }, []);
-
-  useEffect(() => {
     filterNews();
   }, [news, selectedCategory, searchTerm]);
-
-  const fetchNews = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("news")
-        .select("*")
-        .eq("is_active", true)
-        .order("priority", { ascending: false })
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setNews(data || []);
-    } catch (error) {
-      console.error("Error fetching news:", error);
-      console.error("حدث خطأ في تحميل الأخبار - يرجى المحاولة مرة أخرى");
-      setNews([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filterNews = () => {
     let filtered = news;
@@ -109,7 +88,7 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
     return categoryConfig?.color || "blue";
   };
 
-  const addNewsItem = async (e: React.FormEvent) => {
+  const handleAddNewsItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNews.title.trim() || !newNews.content.trim()) {
       console.warn("يرجى ملء جميع الحقول المطلوبة");
@@ -118,42 +97,10 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
 
     setSubmitting(true);
     try {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
+      await addNews(); // Use addNews from useNews hook
+      // No need to setNews here, useNews handles it internally
 
-      if (authError) {
-        console.error("Auth error:", authError);
-        throw new Error("يجب تسجيل الدخول أولاً");
-      }
-
-      if (!user) {
-        throw new Error("يجب تسجيل الدخول أولاً");
-      }
-
-      console.log("Adding news with user:", user.id);
-
-      const { data, error } = await supabase
-        .from("news")
-        .insert({
-          title: newNews.title.trim(),
-          content: newNews.content.trim(),
-          type: newNews.type,
-          created_by: user.id,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error("Supabase error:", error);
-        throw error;
-      }
-
-      // إضافة الخبر الجديد إلى القائمة
-      setNews((prev) => [data, ...prev]);
-
-      // إرسال إشعار للمدراء
+      // إرسال إشعار للمدراء (يمكن أن يكون جزءًا من addNews إذا كان مركزيًا)
       notifyAdmins(
         "خبر جديد يحتاج مراجعة",
         `تم إضافة خبر جديد بعنوان "${newNews.title}" من نوع ${
@@ -164,7 +111,7 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
             : "مهم جداً"
         }`,
         "admin_submission",
-        data.id,
+        "temp_id", // Placeholder
         "news"
       );
 
@@ -173,22 +120,14 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
         "خبر جديد!",
         `تم نشر خبر جديد: "${newNews.title}"`,
         "content_published",
-        data.id,
+        "temp_id", // Placeholder
         "news"
       );
 
-      // إعادة تعيين النموذج
-      setNewNews({
-        title: "",
-        content: "",
-        type: "announcement",
-      });
-      setShowAddForm(false);
-
+      setShowAddNews(false);
       console.log("✅ تم إضافة الخبر بنجاح!");
     } catch (error) {
       console.error("Error adding news:", error);
-      console.error("حدث خطأ في إضافة الخبر - حاول مرة أخرى");
     } finally {
       setSubmitting(false);
     }
@@ -210,14 +149,14 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white shadow-lg">
-        <div className="flex items-center gap-4 mb-4">
-          <Newspaper className="w-12 h-12" />
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-6 sm:p-8 text-white shadow-lg">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-4 text-center sm:text-right">
+          <Newspaper className="w-12 h-12 flex-shrink-0" />
           <div>
-            <h1 className="text-3xl font-bold mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">
               الأخبار والإعلانات المهمة
             </h1>
-            <p className="text-blue-100">
+            <p className="text-blue-100 text-sm sm:text-base">
               ابقَ على اطلاع بكل ما يهمك في رحلتك الدراسية
             </p>
           </div>
@@ -226,7 +165,7 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
         <div className="flex items-center gap-4 mt-6">
           {user ? (
             <button
-              onClick={() => setShowAddForm(true)}
+              onClick={() => setShowAddNews(true)}
               className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -247,8 +186,13 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
+            <label htmlFor="news-search" className="sr-only">
+              البحث في الأخبار
+            </label>
             <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
+              id="news-search"
+              name="newsSearch"
               type="text"
               placeholder="البحث في الأخبار..."
               value={searchTerm}
@@ -278,26 +222,31 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
       </div>
 
       {/* نموذج إضافة خبر جديد */}
-      {showAddForm && user && (
+      {showAddNews && user && (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               إضافة خبر جديد
-            </h3>
+            </h2>
             <button
-              onClick={() => setShowAddForm(false)}
+              onClick={() => setShowAddNews(false)}
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             >
               ✕
             </button>
           </div>
 
-          <form onSubmit={addNewsItem} className="space-y-4">
+          <form onSubmit={handleAddNewsItem} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor="news-title"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 عنوان الخبر *
               </label>
               <input
+                id="news-title"
+                name="newsTitle"
                 type="text"
                 required
                 value={newNews.title}
@@ -310,10 +259,15 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor="news-content"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 محتوى الخبر *
               </label>
               <textarea
+                id="news-content"
+                name="newsContent"
                 required
                 rows={4}
                 value={newNews.content}
@@ -326,10 +280,15 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor="news-category"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 التصنيف *
               </label>
               <select
+                id="news-category"
+                name="newsCategory"
                 value={newNews.type}
                 onChange={(e) =>
                   setNewNews((prev) => ({
@@ -355,7 +314,7 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
               </button>
               <button
                 type="button"
-                onClick={() => setShowAddForm(false)}
+                onClick={() => setShowAddNews(false)}
                 className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
               >
                 إلغاء
@@ -369,9 +328,9 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
       {filteredNews.length === 0 ? (
         <div className="text-center py-12">
           <Newspaper className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
             لا توجد أخبار
-          </h3>
+          </h2>
           <p className="text-gray-600 dark:text-gray-400">
             جرب تغيير معايير البحث أو كن أول من يضيف خبراً مهماً
           </p>
@@ -405,9 +364,9 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
                 </span>
               </div>
 
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
                 {item.title}
-              </h3>
+              </h2>
 
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
                 {item.content}
@@ -428,22 +387,31 @@ function NewsPage({ onNavigate: _onNavigate }: NewsPageProps) {
                 </div>
               )}
 
-              {/* Appeal Button */}
-              <button
-                onClick={() =>
-                  setAppealModal({
-                    isOpen: true,
-                    contentId: item.id,
-                    contentTitle: item.title,
-                  })
-                }
-                className="flex items-center gap-2 text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 text-sm font-medium transition-colors"
-              >
-                <Flag className="w-4 h-4" />
-                <span>الطعن في الخبر</span>
-              </button>
+              <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
+                <button
+                  onClick={() =>
+                    setAppealModal({
+                      isOpen: true,
+                      contentId: item.id,
+                      contentTitle: item.title,
+                    })
+                  }
+                  className="flex items-center gap-2 text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 text-sm font-medium transition-colors"
+                >
+                  <Flag className="w-4 h-4" />
+                  <span>الطعن في الخبر</span>
+                </button>
 
-              <div className="flex items-center justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
+                {isAdmin && (
+                  <button
+                    onClick={() => deleteNews(item.id)}
+                    className="flex items-center gap-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium transition-colors"
+                  >
+                    <Trash className="w-4 h-4" />
+                    <span>حذف الخبر</span>
+                  </button>
+                )}
+
                 <span className="text-xs text-gray-500">
                   {new Date(item.created_at).toLocaleDateString("ar-EG", {
                     year: "numeric",

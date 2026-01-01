@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import type { Notification, NotificationInsert } from '../types/database';
 
 export function useNotifications() {
@@ -23,7 +24,7 @@ export function useNotifications() {
       if (error) throw error;
 
       setNotifications(data || []);
-      setUnreadCount(data?.filter(n => !n.read).length || 0);
+      setUnreadCount(data?.filter((n: Notification) => !n.read).length || 0);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
@@ -95,7 +96,7 @@ export function useNotifications() {
   };
 
   // إنشاء إشعار جديد
-  const createNotification = async (notification: NotificationInsert) => {
+  const createNotification = useCallback(async (notification: NotificationInsert) => {
     try {
       const { data, error } = await supabase
         .from('notifications')
@@ -119,10 +120,35 @@ export function useNotifications() {
       console.error('Error creating notification:', error);
       throw error;
     }
-  };
+  }, []);
+
+  // إرسال إشعار لمستخدم محدد
+  const notifyUser = useCallback(async (
+    userId: string,
+    title: string,
+    message: string,
+    type: NotificationInsert['type'],
+    relatedId?: string,
+    relatedType?: NotificationInsert['related_type']
+  ) => {
+    try {
+      const notification: NotificationInsert = {
+        user_id: userId,
+        title,
+        message,
+        type,
+        related_id: relatedId,
+        related_type: relatedType,
+        read: false,
+      };
+      await createNotification(notification);
+    } catch (error) {
+      console.error('Error notifying user:', error);
+    }
+  }, [createNotification]);
 
   // إرسال إشعار للمدراء
-  const notifyAdmins = async (
+  const notifyAdmins = useCallback(async (
     title: string,
     message: string,
     type: 'admin_submission' | 'content_published' | 'system',
@@ -132,9 +158,8 @@ export function useNotifications() {
     try {
       // الحصول على جميع المدراء
       const { data: admins, error } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('role', 'admin');
+        .from('admins')
+        .select('user_id');
 
       if (error) throw error;
 
@@ -144,8 +169,8 @@ export function useNotifications() {
       }
 
       // إنشاء إشعارات لجميع المدراء
-      const notifications = admins.map(admin => ({
-        user_id: admin.id,
+      const notifications = admins.map((admin: { user_id: string }) => ({
+        user_id: admin.user_id,
         title,
         message,
         type,
@@ -164,10 +189,10 @@ export function useNotifications() {
     } catch (error) {
       console.error('Error notifying admins:', error);
     }
-  };
+  }, []);
 
-  // إرسال إشعار لجميع المستخدمين
-  const notifyAllUsers = async (
+  // إرسال إشعار لجميع المستخدمين (مؤقتاً: إرسال للمدراء فقط)
+  const notifyAllUsers = useCallback(async (
     title: string,
     message: string,
     type: 'content_published' | 'system',
@@ -175,38 +200,13 @@ export function useNotifications() {
     relatedType?: 'summary' | 'news'
   ) => {
     try {
-      // الحصول على جميع المستخدمين
-      const { data: users, error } = await supabase.auth.admin.listUsers();
-
-      if (error) throw error;
-
-      if (!users || users.length === 0) {
-        console.warn('No users found to notify');
-        return;
-      }
-
-      // إنشاء إشعارات لجميع المستخدمين
-      const notifications = users.users.map(user => ({
-        user_id: user.id,
-        title,
-        message,
-        type,
-        related_id: relatedId,
-        related_type: relatedType,
-        read: false
-      }));
-
-      const { error: insertError } = await supabase
-        .from('notifications')
-        .insert(notifications);
-
-      if (insertError) throw insertError;
-
-      console.log(`Notifications sent to ${users.users.length} users`);
+      // مؤقتاً: إرسال إشعار للمدراء فقط (حتى نضيف جدول المستخدمين)
+      await notifyAdmins(title, message, type as any, relatedId, relatedType);
+      console.log('Notification sent to admins (all users notification temporarily disabled)');
     } catch (error) {
       console.error('Error notifying all users:', error);
     }
-  };
+  }, [notifyAdmins]);
 
   // الاشتراك في التحديثات التلقائية
   useEffect(() => {
@@ -218,12 +218,12 @@ export function useNotifications() {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*', // Listen to all events: INSERT, UPDATE, DELETE
           schema: 'public',
           table: 'notifications',
         },
-        (payload) => {
-          console.log('New notification received:', payload);
+        (payload: RealtimePostgresChangesPayload<Notification>) => {
+          console.log('Notification change received:', payload);
           fetchNotifications(); // إعادة جلب الإشعارات
         }
       )
@@ -244,6 +244,7 @@ export function useNotifications() {
     deleteNotification,
     createNotification,
     notifyAdmins,
-    notifyAllUsers
+    notifyAllUsers,
+    notifyUser
   };
 }

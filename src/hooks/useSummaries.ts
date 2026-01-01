@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { Summary } from "../types/database";
 
@@ -6,7 +6,7 @@ export function useSummaries() {
   const [summaries, setSummaries] = useState<Summary[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchSummaries = async () => {
+  const fetchSummaries = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -19,9 +19,10 @@ export function useSummaries() {
     } catch (error) {
       console.error("Error fetching summaries:", error);
     } finally {
+      console.log("useSummaries: fetch finished");
       setLoading(false);
     }
-  };
+  }, []);
 
   const updateStatus = async (id: string, status: "approved" | "rejected") => {
     try {
@@ -67,7 +68,7 @@ export function useSummaries() {
 
   useEffect(() => {
     fetchSummaries();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     summaries,

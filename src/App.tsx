@@ -1,21 +1,22 @@
 import { useState, useEffect, Suspense, lazy } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { ChatProvider } from "./contexts/ChatContext";
 import { NotificationProvider } from "./components/NotificationManager";
 import { Layout } from "./components/Layout";
 
-// Lazy load all page components for code splitting
-const HomePage = lazy(() => import("./pages/HomePage"));
-const AddSummaryPage = lazy(() => import("./pages/AddSummaryPage"));
+// Eager load critical pages, lazy load others for better performance
+import HomePage from "./pages/HomePage";
+import AddSummaryPage from "./pages/AddSummaryPage";
+
+// Lazy load less critical pages
 const SummaryDetailPage = lazy(() => import("./pages/SummaryDetailPage"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const SignUpPage = lazy(() => import("./pages/SignUpPage"));
 const NewsPage = lazy(() => import("./pages/NewsPage"));
+// Group AI-related pages together for better chunking
 const WhatsAppUploadPage = lazy(() => import("./pages/WhatsAppUploadPage"));
 const WhatsAppChatPage = lazy(() => import("./pages/WhatsAppChatPage"));
-const ChatPage = lazy(() => import("./pages/ChatPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 
 function AppContent() {
@@ -64,9 +65,13 @@ function AppContent() {
         fallback={
           <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600 dark:text-gray-400">
-                جاري التحميل...
+              <div className="animate-pulse">
+                <div className="w-12 h-12 bg-blue-200 dark:bg-blue-800 rounded-full mx-auto mb-4"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 mx-auto mb-2"></div>
+                <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-24 mx-auto"></div>
+              </div>
+              <p className="mt-4 text-xs text-gray-500 dark:text-gray-500">
+                تحميل الصفحة...
               </p>
             </div>
           </div>
@@ -88,7 +93,6 @@ function AppContent() {
         {currentPage === "whatsapp-chat" && (
           <WhatsAppChatPage onNavigate={navigate} />
         )}
-        {currentPage === "chat" && <ChatPage />}
         {currentPage === "profile" && <ProfilePage onNavigate={navigate} />}
       </Suspense>
     </Layout>
@@ -100,9 +104,7 @@ function App() {
     <ThemeProvider>
       <NotificationProvider>
         <AuthProvider>
-          <ChatProvider>
-            <AppContent />
-          </ChatProvider>
+          <AppContent />
         </AuthProvider>
       </NotificationProvider>
     </ThemeProvider>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Mail, Shield, Edit3, Save, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { NotificationSettings } from "../components/NotificationManager";
@@ -8,10 +8,15 @@ interface ProfilePageProps {
 }
 
 function ProfilePage({ onNavigate }: ProfilePageProps) {
-  const { user, displayName, isAdmin, updateDisplayName } = useAuth();
+  const { user, displayName, isAdmin, updateDisplayName, refreshAdminStatus } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState(displayName || "");
   const [isSaving, setIsSaving] = useState(false);
+
+  // Force refresh admin status when visiting profile
+  useEffect(() => {
+    refreshAdminStatus();
+  }, []);
 
   const handleSaveDisplayName = async () => {
     if (!newDisplayName.trim() || newDisplayName.trim() === displayName) {
@@ -91,12 +96,18 @@ function ProfilePage({ onNavigate }: ProfilePageProps) {
                 <div className="flex items-center space-x-3">
                   <User className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                    <label
+                      htmlFor="profile-display-name"
+                      className="text-sm text-gray-500 dark:text-gray-400"
+                    >
                       اسم المستخدم
-                    </p>
+                    </label>
                     {isEditing ? (
                       <input
+                        id="profile-display-name"
+                        name="displayName"
                         type="text"
+                        autoComplete="name"
                         value={newDisplayName}
                         onChange={(e) => setNewDisplayName(e.target.value)}
                         className="mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
