@@ -101,6 +101,8 @@ API_KEYS_SETUP.md
 SECURITY_CHECKLIST.md
 .setup-supabase.sh
 .setup-supabase.ps1
+setup-supabase.sh
+setup-supabase.ps1
 
 # Agent and IDE artifacts
 .gemini/
