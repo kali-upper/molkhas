@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { LogIn } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { useAnalytics } from "../hooks/useAnalytics";
 
 interface LoginPageProps {
   onNavigate: (page: string) => void;
@@ -8,6 +9,7 @@ interface LoginPageProps {
 
 function LoginPage({ onNavigate }: LoginPageProps) {
   const { signIn, signInWithGoogle, user } = useAuth();
+  const { trackEvent, logError } = useAnalytics();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -89,10 +91,17 @@ function LoginPage({ onNavigate }: LoginPageProps) {
       setLockoutTime(0);
       localStorage.removeItem("login_attempts");
 
+      trackEvent('login_success', { method: 'email' });
+
       // Don't navigate immediately - let AuthContext handle the state update
       console.log("Login successful, waiting for state update...");
     } catch (err) {
       console.error("Error signing in:", err);
+      logError(err instanceof Error ? err : String(err), { 
+        message: 'Login failed', 
+        metadata: { method: 'email' } // Do NOT log email
+      });
+      trackEvent('login_failure', { method: 'email' });
 
       // Increment attempts and set lockout
       const newAttempts = attempts + 1;
@@ -108,7 +117,7 @@ function LoginPage({ onNavigate }: LoginPageProps) {
         })
       );
 
-      if (newAttempts >= 3) {
+      if (newAttempts >= 20) {
         setLockoutTime(lockoutDuration);
         setError(
           `تم تعليق المحاولات بسبب محاولات فاشلة متكررة. انتظر ${Math.ceil(
@@ -117,7 +126,7 @@ function LoginPage({ onNavigate }: LoginPageProps) {
         );
       } else {
         setError(
-          `خطأ في البريد الإلكتروني أو كلمة المرور (${newAttempts}/3 محاولات)`
+          "خطأ في البريد الإلكتروني أو كلمة المرور"
         );
       }
     } finally {
@@ -131,9 +140,15 @@ function LoginPage({ onNavigate }: LoginPageProps) {
 
     try {
       await signInWithGoogle();
+      trackEvent('login_success', { method: 'google' });
       // سيتم إعادة التوجيه تلقائياً
     } catch (err) {
       console.error("Error signing in with Google:", err);
+      logError(err instanceof Error ? err : String(err), { 
+        message: 'Google login failed',
+        metadata: { method: 'google' }
+      });
+      trackEvent('login_failure', { method: 'google' });
       setError("حدث خطأ أثناء تسجيل الدخول بـ Google. يرجى المحاولة مرة أخرى.");
       setGoogleLoading(false);
     }
@@ -149,9 +164,6 @@ function LoginPage({ onNavigate }: LoginPageProps) {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             تسجيل الدخول
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            للوصول إلى لوحة التحكم
-          </p>
         </div>
 
         {error && (

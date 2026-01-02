@@ -14,29 +14,29 @@ import {
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { useNavigate, useLocation } from "react-router-dom";
 import { NotificationDropdown } from "./NotificationDropdown";
 
-interface HeaderProps {
-  currentPage: string;
-  onNavigate: (page: string, id?: string) => void;
-}
-
-export function Header({ currentPage, onNavigate }: HeaderProps) {
+export function Header() {
   const { user, isAdmin, isAdminLoading, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const currentPage = location.pathname === "/" ? "home" : location.pathname.substring(1);
 
   const handleSignOut = async () => {
     try {
       await signOut();
-      onNavigate("home");
+      navigate("/");
     } catch (error) {
       console.error("Error signing out:", error);
     }
   };
 
   const handleNavigate = (page: string, id?: string) => {
-    onNavigate(page, id);
+    navigate(id ? `/${page}/${id}` : `/${page}`);
     setIsMobileMenuOpen(false); // إغلاق القائمة المحمولة عند الانتقال
   };
 
@@ -46,7 +46,7 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
         <div className="flex justify-between items-center h-14 sm:h-16">
           {/* Logo/Brand */}
           <button
-            onClick={() => onNavigate("home")}
+            onClick={() => handleNavigate("home")}
             className="flex items-center gap-1 sm:gap-2 text-lg sm:text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors min-w-0"
           >
             <BookOpen className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600 dark:text-blue-400 flex-shrink-0" />
@@ -58,7 +58,7 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
             {/* Desktop Navigation - Hidden on mobile, shown on tablet/desktop */}
             <div className="hidden lg:flex items-center gap-2 xl:gap-4">
               <button
-                onClick={() => onNavigate("home")}
+                onClick={() => handleNavigate("home")}
                 className={`px-3 py-2 lg:px-4 lg:py-3 rounded-lg text-sm lg:text-base font-medium transition-colors ${
                   currentPage === "home"
                     ? "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
@@ -69,7 +69,7 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
               </button>
 
               <button
-                onClick={() => onNavigate("news")}
+                onClick={() => handleNavigate("news")}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   currentPage === "news"
                     ? "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
@@ -80,10 +80,10 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
               </button>
 
               <button
-                onClick={() => onNavigate("whatsapp-upload")}
+                onClick={() => handleNavigate("ai-assistant-upload")}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  currentPage === "whatsapp-upload" ||
-                  currentPage === "whatsapp-chat"
+                  currentPage === "ai-assistant-upload" ||
+                  currentPage === "ai-assistant-chat"
                     ? "bg-green-50 dark:bg-green-900/50 text-green-700 dark:text-green-300"
                     : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                 }`}
@@ -93,7 +93,7 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
               </button>
 
               <button
-                onClick={() => onNavigate("add")}
+                onClick={() => handleNavigate("add")}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   currentPage === "add"
                     ? "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
@@ -114,7 +114,7 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
                   ) : (
                     isAdmin && (
                       <button
-                        onClick={() => onNavigate("admin")}
+                        onClick={() => handleNavigate("admin")}
                         className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                           currentPage === "admin"
                             ? "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
@@ -127,7 +127,7 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
                     )
                   )}
                   <button
-                    onClick={() => onNavigate("profile")}
+                    onClick={() => handleNavigate("profile")}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       currentPage === "profile"
                         ? "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
@@ -148,14 +148,14 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
               ) : (
                 <>
                   <button
-                    onClick={() => onNavigate("signup")}
+                    onClick={() => handleNavigate("signup")}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     تسجيل
                   </button>
                   <button
-                    onClick={() => onNavigate("login")}
+                    onClick={() => handleNavigate("login")}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >
                     <LogIn className="w-4 h-4" />
@@ -237,10 +237,10 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
                   </button>
 
                   <button
-                    onClick={() => handleNavigate("whatsapp-upload")}
+                    onClick={() => handleNavigate("ai-assistant-upload")}
                     className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-lg text-sm sm:text-base font-medium transition-colors text-right touch-manipulation ${
-                      currentPage === "whatsapp-upload" ||
-                      currentPage === "whatsapp-chat"
+                      currentPage === "ai-assistant-upload" ||
+                      currentPage === "ai-assistant-chat"
                         ? "bg-green-50 dark:bg-green-900/50 text-green-700 dark:text-green-300"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}

@@ -27,8 +27,6 @@ if (savedStatus === 'working') {
   isAIWorking = true;
 }
 
-
-
 export interface ChatChunk {
   id: string;
   content: string;
@@ -36,11 +34,11 @@ export interface ChatChunk {
   author?: string;
 }
 
-export class WhatsAppAssistant {
+export class AiAssistant {
   private chatChunks: ChatChunk[] = [];
 
-  // Parse WhatsApp export text
-  parseWhatsAppExport(text: string): ChatChunk[] {
+  // Parse chat export text
+  parseChatExport(text: string): ChatChunk[] {
     const chunks: ChatChunk[] = [];
 
     // Handle different data formats
@@ -60,14 +58,14 @@ export class WhatsAppAssistant {
         }
       }
     } else {
-      // Standard WhatsApp export parsing
+      // Standard chat export parsing
       const lines = text.split('\n');
       let currentMessage = '';
       let currentTimestamp = '';
       let currentAuthor = '';
 
       for (const line of lines) {
-        // WhatsApp export format: [12/17/25, 10:30:45 AM] Author: Message
+        // Chat export format: [12/17/25, 10:30:45 AM] Author: Message
         const timestampMatch = line.match(/^\[([^\]]+)\]/);
 
         if (timestampMatch) {
@@ -184,9 +182,6 @@ export class WhatsAppAssistant {
       .map(item => item.chunk);
   }
 
-
-
-
   // Generate AI response using secure Supabase Edge Function
   async generateResponse(query: string): Promise<string> {
     console.log('🤖 Starting generateResponse for query:', query);
@@ -197,7 +192,7 @@ export class WhatsAppAssistant {
 
     if (relevantChunks.length === 0) {
       const totalMessages = this.getStats().totalMessages;
-      return `لم أجد معلومات ذات صلة في محادثات المجموعة (${totalMessages} رسائل متاحة) للإجابة على سؤالك. يرجى:\n\n1. إعادة صياغة السؤال بطريقة مختلفة\n2. التأكد من أن المحادثات تحتوي على معلومات حول هذا الموضوع\n3. تحميل محادثات واتساب أكثر شمولاً إذا لزم الأمر.\n\n💡 جرب أسئلة مثل: "متى موعد الامتحان؟" أو "ما هي متطلبات المادة؟"`;
+      return `لم أجد معلومات ذات صلة في محادثات المجموعة (${totalMessages} رسائل متاحة) للإجابة على سؤالك. يرجى:\n\n1. إعادة صياغة السؤال بطريقة مختلفة\n2. التأكد من أن المحادثات تحتوي على معلومات حول هذا الموضوع\n3. تحميل بيانات أكثر شمولاً إذا لزم الأمر.\n\n💡 جرب أسئلة مثل: "متى موعد الامتحان؟" أو "ما هي متطلبات المادة؟"`;
     }
 
     try {
@@ -336,7 +331,7 @@ export class WhatsAppAssistant {
   }
 
   async loadAllData(): Promise<void> {
-    console.log('🔄 Loading WhatsApp data from GitHub...');
+    console.log('🔄 Loading AI Assistant data from GitHub...');
 
     const filesToLoad = [
       'https://raw.githubusercontent.com/kali-upper/whatsapp-group/refs/heads/main/data.txt'
@@ -355,7 +350,7 @@ export class WhatsAppAssistant {
         }
 
         const text = await response.text();
-        const chunks = this.parseWhatsAppExport(text);
+        const chunks = this.parseChatExport(text);
         totalLoaded += chunks.length;
 
         console.log(`✅ Loaded ${fileUrl}: ${chunks.length} messages`);
@@ -370,7 +365,7 @@ export class WhatsAppAssistant {
       const localResponse = await fetch('/data.txt');
       if (localResponse.ok) {
         const localText = await localResponse.text();
-        const localChunks = this.parseWhatsAppExport(localText);
+        const localChunks = this.parseChatExport(localText);
         console.log(`✅ Loaded local data.txt: ${localChunks.length} messages`);
         totalLoaded += localChunks.length;
       }
@@ -388,8 +383,8 @@ export class WhatsAppAssistant {
 
   // Load data from a local file (for manual upload)
   async loadFromText(text: string): Promise<void> {
-    console.log('🔄 Loading WhatsApp data from text...');
-    const chunks = this.parseWhatsAppExport(text);
+    console.log('🔄 Loading data from text...');
+    const chunks = this.parseChatExport(text);
     console.log(`✅ Loaded from text: ${chunks.length} messages`);
 
     const stats = this.getStats();
@@ -427,4 +422,4 @@ export class WhatsAppAssistant {
 }
 
 // Export singleton instance
-export const whatsAppAssistant = new WhatsAppAssistant();
+export const aiAssistant = new AiAssistant();

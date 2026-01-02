@@ -105,7 +105,7 @@ function SignUpPage({ onNavigate }: SignUpPageProps) {
         })
       );
 
-      if (newAttempts >= 3) {
+      if (newAttempts >= 20) {
         setLockoutTime(lockoutDuration);
         setError(
           `تم تعليق المحاولات بسبب محاولات فاشلة متكررة. انتظر ${Math.ceil(
@@ -122,7 +122,7 @@ function SignUpPage({ onNavigate }: SignUpPageProps) {
           );
         } else {
           setError(
-            `حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى. (${newAttempts}/3 محاولات)`
+            "حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى."
           );
         }
       }

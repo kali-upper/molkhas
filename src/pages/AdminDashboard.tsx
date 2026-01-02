@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { BookOpen, Newspaper, Flag, BarChart3 } from "lucide-react";
 import { useSummaries } from "../hooks/useSummaries";
 import { useNews } from "../hooks/useNews";
@@ -11,6 +12,7 @@ import { AddNewsModal } from "../components/AddNewsModal";
 import { AdminAnalyticsPage } from "./AdminAnalyticsPage";
 
 function AdminDashboard() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
     "summaries" | "news" | "appeals" | "analytics"
   >("summaries");
@@ -80,7 +82,7 @@ function AdminDashboard() {
           />
         );
       case "analytics":
-        return <AdminAnalyticsPage onNavigate={() => {}} />;
+        return <AdminAnalyticsPage onNavigate={(page) => navigate(page === "home" ? "/" : `/${page}`)} />;
       default:
         return null;
     }

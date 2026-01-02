@@ -1,74 +1,45 @@
-import { useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { chatHelpers } from '../lib/supabase';
-
-interface AnalyticsData {
-  actionType: 'summary_view' | 'summary_click' | 'ai_interaction' | 'content_view' | 'user_login' | 'user_logout';
-  contentType: string;
-  contentId?: string;
-  metadata?: Record<string, any>;
-}
+import { useCallback, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { analytics, SystemLog } from '../lib/analytics';
 
 export const useAnalytics = () => {
-  const { user } = useAuth();
+  const location = useLocation();
 
-  const trackEvent = useCallback(async (data: AnalyticsData) => {
-    if (!user?.id) {
-      console.warn('Cannot track analytics: user not authenticated');
-      return;
-    }
+  // Track page views automatically when location changes
+  useEffect(() => {
+    analytics.trackPageView();
+  }, [location.pathname]);
 
-    try {
-      await chatHelpers.recordAnalytics({
-        userId: user.id,
-        ...data,
-      });
-    } catch (error) {
-      console.error('Failed to track analytics:', error);
-    }
-  }, [user?.id]);
+  const trackEvent = useCallback((eventName: string, metadata?: Record<string, any>) => {
+    analytics.trackEvent(eventName, metadata);
+  }, []);
 
-  const trackView = useCallback(async (contentType: string, contentId?: string, metadata?: Record<string, any>) => {
-    await trackEvent({
-      actionType: 'content_view',
-      contentType,
-      contentId,
-      metadata,
-    });
+  const logError = useCallback((error: Error | string, context?: Partial<SystemLog>) => {
+    analytics.logError(error, context);
+  }, []);
+
+  const log = useCallback((logData: SystemLog) => {
+    analytics.log(logData);
+  }, []);
+
+  const trackSummaryView = useCallback((id: string, examInfo?: any) => {
+    trackEvent('summary_view', { id, ...examInfo });
   }, [trackEvent]);
 
-  const trackClick = useCallback(async (contentType: string, contentId?: string, metadata?: Record<string, any>) => {
-    await trackEvent({
-      actionType: 'summary_click',
-      contentType,
-      contentId,
-      metadata,
-    });
+  const trackSummaryClick = useCallback((id: string, action: string) => {
+    trackEvent('summary_click', { id, action });
   }, [trackEvent]);
 
-  const trackSummaryView = useCallback(async (summaryId: string, examInfo?: any) => {
-    await trackEvent({
-      actionType: 'summary_view',
-      contentType: 'summary',
-      contentId: summaryId,
-      metadata: examInfo ? { exam_date: examInfo.date, exam_type: examInfo.type } : undefined,
-    });
-  }, [trackEvent]);
-
-  const trackSummaryClick = useCallback(async (summaryId: string, action: string = 'download') => {
-    await trackEvent({
-      actionType: 'summary_click',
-      contentType: 'summary',
-      contentId: summaryId,
-      metadata: { action },
-    });
+  const trackClick = useCallback((contentType: string, contentId?: string, metadata?: any) => {
+    trackEvent('click', { contentType, contentId, ...metadata });
   }, [trackEvent]);
 
   return {
     trackEvent,
-    trackView,
-    trackClick,
+    logError,
+    log,
     trackSummaryView,
     trackSummaryClick,
+    trackClick
   };
 };

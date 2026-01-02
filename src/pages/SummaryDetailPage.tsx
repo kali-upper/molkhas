@@ -7,17 +7,20 @@ import {
   Download,
   FileText,
   Flag,
+  Edit,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import { Summary } from "../types/database";
 import { AppealFormModal } from "../components/AppealFormModal";
 
 interface SummaryDetailPageProps {
   summaryId: string;
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, id?: string) => void;
 }
 
 function SummaryDetailPage({ summaryId, onNavigate }: SummaryDetailPageProps) {
+  const { user, isAdmin } = useAuth();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -177,6 +180,19 @@ function SummaryDetailPage({ summaryId, onNavigate }: SummaryDetailPageProps) {
                 <span>الطعن في المحتوى</span>
               </button>
             </div>
+            
+            {/* Edit Button for Owner or Admin */}
+            {(isAdmin || (user && user.id === summary.user_id)) && (
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => onNavigate("edit", summary.id)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors text-sm font-medium"
+                >
+                  <Edit className="w-4 h-4" />
+                  <span>تعديل الملخص</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

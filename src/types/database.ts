@@ -22,6 +22,7 @@ export type Database = {
           status: 'pending' | 'approved' | 'rejected'
           created_at: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           id?: string
@@ -35,6 +36,7 @@ export type Database = {
           status?: 'pending' | 'approved' | 'rejected'
           created_at?: string
           updated_at?: string
+          user_id?: string
         }
         Update: {
           id?: string
@@ -48,6 +50,7 @@ export type Database = {
           status?: 'pending' | 'approved' | 'rejected'
           created_at?: string
           updated_at?: string
+          user_id?: string
         }
       }
       news: {

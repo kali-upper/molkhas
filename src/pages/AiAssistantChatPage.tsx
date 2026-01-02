@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Send, MessageSquare, Bot, User, Trash2, X } from "lucide-react";
-import { whatsAppAssistant } from "../lib/gemini";
+import { aiAssistant } from "../lib/gemini";
+import { useAnalytics } from "../hooks/useAnalytics";
 
-interface WhatsAppChatPageProps {
+interface AiAssistantChatPageProps {
   onNavigate: (page: string) => void;
 }
 
@@ -13,7 +14,8 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
+function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
+  const { trackEvent, logError } = useAnalytics();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -22,16 +24,27 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const stats = whatsAppAssistant.getStats();
-  const aiStatus = whatsAppAssistant.getAIStatus();
+  const stats = aiAssistant.getStats();
+  const aiStatus = aiAssistant.getAIStatus();
   const hasChatData = stats.totalChunks > 0;
 
-  // Local storage key for chat messages
-  const CHAT_STORAGE_KEY = "whatsapp_chat_messages";
+  // Local storage keys
+  const CHAT_STORAGE_KEY = "ai_assistant_chat_messages";
+  const OLD_CHAT_STORAGE_KEY = "whatsapp_chat_messages";
 
   // Load messages from localStorage on component mount
   useEffect(() => {
-    const savedMessages = localStorage.getItem(CHAT_STORAGE_KEY);
+    let savedMessages = localStorage.getItem(CHAT_STORAGE_KEY);
+    
+    // Fallback to old key if new one doesn't exist
+    if (!savedMessages) {
+      savedMessages = localStorage.getItem(OLD_CHAT_STORAGE_KEY);
+      if (savedMessages) {
+        localStorage.setItem(CHAT_STORAGE_KEY, savedMessages);
+        // Optional: localStorage.removeItem(OLD_CHAT_STORAGE_KEY);
+      }
+    }
+
     if (savedMessages) {
       try {
         const parsedMessages = JSON.parse(savedMessages);
@@ -70,7 +83,7 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
       if (stats.totalChunks === 0) {
         console.log("🔄 لا توجد بيانات، جاري تحميل البيانات تلقائياً...");
         try {
-          await whatsAppAssistant.loadAllData();
+          await aiAssistant.loadAllData();
           console.log("✅ تم تحميل البيانات تلقائياً");
         } catch (error: unknown) {
           console.error("❌ فشل في تحميل البيانات تلقائياً:", error);
@@ -98,9 +111,10 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage("");
     setIsLoading(true);
+    trackEvent('ai_question_asked', { length: userMessage.content.length });
 
     try {
-      const response = await whatsAppAssistant.generateResponse(
+      const response = await aiAssistant.generateResponse(
         userMessage.content
       );
 
@@ -112,13 +126,16 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      trackEvent('ai_response_received', { length: response.length });
     } catch (error: unknown) {
       console.error("Error getting AI response:", error);
+      logError(error instanceof Error ? error : String(error), { message: 'AI generation failed' });
+      trackEvent('ai_error', { type: 'generation_failed' });
       const errorMessage: ChatMessage = {
         id: `error_${Date.now()}`,
         type: "assistant",
         content:
-          "Sorry, I encountered an error while processing your question. Please try again.",
+          "عذراً، حدث خطأ أثناء معالجة سؤالك. يرجى المحاولة مرة أخرى.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -146,16 +163,16 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
   };
 
   const clearData = () => {
-    whatsAppAssistant.clearData();
+    aiAssistant.clearData();
     setMessages([]);
     localStorage.removeItem(CHAT_STORAGE_KEY);
-    onNavigate("whatsapp-upload");
+    onNavigate("ai-assistant-upload");
   };
 
   const reloadData = async () => {
     try {
       console.log("🔄 إعادة تحميل بيانات المساعد...");
-      await whatsAppAssistant.loadAllData();
+      await aiAssistant.loadAllData();
       alert("✅ تم إعادة تحميل البيانات بنجاح! المعلومات محدثة الآن.");
     } catch (error: unknown) {
       console.error("❌ خطأ في إعادة تحميل البيانات:", error);
@@ -164,7 +181,7 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
   };
 
   const reEnableAI = async () => {
-    const success = await whatsAppAssistant.forceReEnableAI();
+    const success = await aiAssistant.forceReEnableAI();
     if (success) {
       // Force re-render to update the status
       window.location.reload();
@@ -186,7 +203,7 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
 
     // Save immediately to localStorage for instant feedback
     localStorage.setItem("user_gemini_api_key", trimmedKey);
-    whatsAppAssistant.reinitializeGemini();
+    aiAssistant.reinitializeGemini();
     setShowApiKeyModal(false);
     setApiKeyInput("");
 
@@ -204,7 +221,7 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
       const testGenAI = new GoogleGenerativeAI(apiKey);
       const testModel = testGenAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.0-flash",
       });
 
       // Simple test to verify the API key works
@@ -249,7 +266,7 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
 
   const clearApiKey = () => {
     localStorage.removeItem("user_gemini_api_key");
-    whatsAppAssistant.reinitializeGemini();
+    aiAssistant.reinitializeGemini();
     console.log("تم مسح مفتاح API المخصص والرجوع للمفتاح الافتراضي");
   };
 
@@ -266,11 +283,10 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
         <div className="text-center">
           <Bot className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            No Chat Data Found
+            No Data Found
           </h1>
           <p className="text-gray-600 dark:text-gray-300 mb-6">
-            Please upload a WhatsApp chat export first to start asking
-            questions.
+            Please upload data first to start asking questions.
           </p>
           <div className="space-x-4">
             <button
@@ -320,7 +336,7 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
             <Bot className="w-8 h-8 text-blue-600 flex-shrink-0" />
             <div className="min-w-0">
               <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white truncate">
-                WhatsApp AI Assistant
+                AI Assistant
               </h1>
               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
                 {stats.totalMessages} messages • AI:{" "}
@@ -371,19 +387,19 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
             <div className="text-center py-12">
               <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                WhatsApp AI Assistant 🤖
+                AI Assistant 🤖
               </h3>
               <div className="mb-3">
                 <p className="text-gray-700 dark:text-gray-200 font-semibold">
                   مرحبًا بك 👋
                 </p>
                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">
-                  هذا المساعد يجيب عن أي سؤال باستخدام رسائل مجموعة واتساب فقط
+                  هذا المساعد يجيب عن أي سؤال باستخدام البيانات المتاحة فقط
                   (بدون تخمين أو مصادر خارجية).
                 </p>
                 <p className="text-xs text-blue-800 bg-blue-100 dark:bg-blue-900 dark:text-blue-300 rounded p-2 inline-block mb-2">
-                  تنويه: إجابات المساعد تعتمد على ما يُكتب في المجموعة — كلما
-                  كانت الرسائل أوضح كلما أصبحت الإجابات أدق.
+                  تنويه: إجابات المساعد تعتمد على البيانات المتوفرة — كلما
+                  كانت البيانات أوضح كلما أصبحت الإجابات أدق.
                 </p>
                 <p className="text-xs text-gray-400">
                   (المساعد لا يجيد المزاح أو الهزار ، ويتجنب الرسائل العشوائية
@@ -504,8 +520,8 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
                 onKeyPress={handleKeyPress}
                 placeholder={
                   messages.length > 0
-                    ? "Continue the conversation... اسأل عن أي شيء في الدردشة"
-                    : "Ask me anything about your WhatsApp chat... اسأل عن أي شيء في المجموعة"
+                    ? "Continue the conversation... اسأل عن أي شيء"
+                    : "Ask me anything... اسأل عن أي شيء"
                 }
                 className="w-full px-4 py-3 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
                 rows={1}
@@ -615,4 +631,4 @@ function WhatsAppChatPage({ onNavigate }: WhatsAppChatPageProps) {
   );
 }
 
-export default WhatsAppChatPage;
+export default AiAssistantChatPage;

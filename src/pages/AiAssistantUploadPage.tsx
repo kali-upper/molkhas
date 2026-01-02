@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Loader2, Bot } from "lucide-react";
-import { whatsAppAssistant } from "../lib/gemini";
+import { aiAssistant } from "../lib/gemini";
 
-interface WhatsAppUploadPageProps {
+interface AiAssistantUploadPageProps {
   onNavigate: (page: string) => void;
 }
 
-function WhatsAppUploadPage({ onNavigate }: WhatsAppUploadPageProps) {
+function AiAssistantUploadPage({ onNavigate }: AiAssistantUploadPageProps) {
   const [hasLoaded, setHasLoaded] = useState(false);
   useEffect(() => {
     if (hasLoaded) return; // Prevent duplicate loading
@@ -14,18 +14,18 @@ function WhatsAppUploadPage({ onNavigate }: WhatsAppUploadPageProps) {
     const loadData = async () => {
       setHasLoaded(true);
       try {
-        console.log("🔄 Loading all WhatsApp chat data...");
-        await whatsAppAssistant.loadAllData();
+        console.log("🔄 Loading all AI Assistant data...");
+        await aiAssistant.loadAllData();
 
-        const stats = whatsAppAssistant.getStats();
+        const stats = aiAssistant.getStats();
         console.log("✅ Data loaded successfully:", stats);
 
         // Redirect to chat page
-        onNavigate("whatsapp-chat");
+        onNavigate("ai-assistant-chat");
       } catch (error) {
         console.error("❌ Error loading data:", error);
         // Still redirect to chat page even if there's an error
-        onNavigate("whatsapp-chat");
+        onNavigate("ai-assistant-chat");
       }
     };
 
@@ -43,7 +43,7 @@ function WhatsAppUploadPage({ onNavigate }: WhatsAppUploadPageProps) {
             مساعد الذكاء الاصطناعي
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-300 mb-6">
-            جاري تحميل محادثات مجموعة الحاسبات والمعلومات...
+            جاري تحميل البيانات والملفات...
           </p>
         </div>
 
@@ -70,4 +70,4 @@ function WhatsAppUploadPage({ onNavigate }: WhatsAppUploadPageProps) {
   );
 }
 
-export default WhatsAppUploadPage;
+export default AiAssistantUploadPage;
