@@ -26,7 +26,7 @@ interface AnalyticsSummary {
 export const AdminAnalyticsPage: React.FC<AdminAnalyticsPageProps> = ({
   onNavigate,
 }) => {
-  const { user } = useAuth();
+  const { isAdmin, isAdminLoading } = useAuth();
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export const AdminAnalyticsPage: React.FC<AdminAnalyticsPageProps> = ({
       setError(null);
 
       // Check if user is admin
-      if (user?.user_metadata?.role !== "admin") {
+      if (!isAdmin) {
         setError("غير مصرح لك بالوصول إلى هذه الصفحة");
         return;
       }
@@ -78,7 +78,7 @@ export const AdminAnalyticsPage: React.FC<AdminAnalyticsPageProps> = ({
     }
   };
 
-  if (loading) {
+  if (isAdminLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
         <div className="max-w-6xl mx-auto">

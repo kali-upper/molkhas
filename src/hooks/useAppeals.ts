@@ -24,7 +24,6 @@ export function useAppeals() {
     } catch (error) {
       console.error("Error fetching appeals:", error);
     } finally {
-      console.log("useAppeals: fetch finished");
       setLoading(false);
     }
   }, []);
@@ -37,7 +36,6 @@ export function useAppeals() {
       if (error) throw error;
 
       setAppeals((prev) => prev.filter((appeal) => appeal.id !== id));
-      console.log(`✅ تم حذف الطعن ${id} بنجاح.`);
     } catch (error) {
       console.error("Error deleting appeal:", error);
       alert("حدث خطأ أثناء حذف الطعن.");
@@ -68,7 +66,6 @@ export function useAppeals() {
         id,
         "appeal"
       );
-      console.log(`✅ تم قبول الطعن ${id} بنجاح.`);
     } catch (error) {
       console.error("Error accepting appeal:", error);
       alert("حدث خطأ أثناء قبول الطعن.");
@@ -99,7 +96,6 @@ export function useAppeals() {
         id,
         "appeal"
       );
-      console.log(`✅ تم رفض الطعن ${id} بنجاح.`);
     } catch (error) {
       console.error("Error rejecting appeal:", error);
       alert("حدث خطأ أثناء رفض الطعن.");

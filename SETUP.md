@@ -1,10 +1,10 @@
 # Complete Setup Instructions
 
-This guide will walk you through setting up the "Molkhas" platform from scratch.
+This guide will walk you through setting up the "Masar X" platform from scratch.
 
 ## Project Overview
 
-"Molkhas" is a crowdsourced platform for university students to share study summaries. It features:
+"Masar X" is a crowdsourced platform for university students to share study summaries. It features:
 
 - Public submission of summaries (no account needed)
 - Admin moderation system
@@ -16,6 +16,7 @@ This guide will walk you through setting up the "Molkhas" platform from scratch.
 
 - Node.js 18+ and npm
 - A Supabase project (already configured)
+- A Cloudinary account for image/file uploads (see [CLOUDINARY_SETUP.md](CLOUDINARY_SETUP.md))
 
 ## Installation Steps
 
@@ -87,7 +88,7 @@ Quick method:
 ## Project Structure
 
 ```
-Molkhas/
+Masar X/
 ├── src/
 │   ├── components/         # Reusable UI components
 │   │   ├── Header.tsx     # Navigation header

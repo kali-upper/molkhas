@@ -419,6 +419,58 @@ export class AiAssistant {
       isAIWorking = false;
     }
   }
+  // Generate Quiz from text
+  async generateQuiz(text: string): Promise<any> {
+    console.log('🧠 Generating quiz from text...');
+
+    // Construct the prompt
+    const prompt = `
+      Create a quiz with 5 multiple choice questions based on the following text.
+      Return the result as a valid JSON object with this structure:
+      {
+        "title": "Quiz Title",
+        "questions": [
+          {
+            "question": "Question text",
+            "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+            "correctAnswer": 0 // Index of correct option (0-3)
+          }
+        ]
+      }
+      Do not include any markdown formatting (like \`\`\`json), just the raw JSON string.
+      
+      Text to generate quiz from:
+      ${text.substring(0, 15000)} // Limit text length to avoid token limits
+    `;
+
+    try {
+      const { supabase } = await import('./supabase');
+
+      // Reuse the existing gemini-chat function but with our specific prompt
+      // We pass the text as a "chunk" to ensure it's in the context
+      const { data, error } = await supabase.functions.invoke('gemini-chat', {
+        body: {
+          query: "Generate a quiz based on the context provided.",
+          relevantChunks: [{ content: prompt, author: 'System' }],
+          userId: null
+        }
+      });
+
+      if (error) throw error;
+
+      console.log('✅ Quiz generated successfully');
+
+      // Parse the response
+      let jsonStr = data.response;
+      // Clean up markdown if present
+      jsonStr = jsonStr.replace(/```json/g, '').replace(/```/g, '').trim();
+
+      return JSON.parse(jsonStr);
+    } catch (error) {
+      console.error('❌ Error generating quiz:', error);
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance

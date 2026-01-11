@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { UserPlus, Mail, Lock, ArrowLeft } from "lucide-react";
+import { UserPlus, Mail, Lock, ArrowLeft, EyeOff } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 interface SignUpPageProps {
@@ -17,6 +17,8 @@ function SignUpPage({ onNavigate }: SignUpPageProps) {
   const [success, setSuccess] = useState("");
   const [attempts, setAttempts] = useState(0);
   const [lockoutTime, setLockoutTime] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Load attempts from localStorage on mount
   useEffect(() => {
@@ -121,9 +123,7 @@ function SignUpPage({ onNavigate }: SignUpPageProps) {
             "هذا البريد الإلكتروني مسجل بالفعل. جرب تسجيل الدخول بدلاً من ذلك."
           );
         } else {
-          setError(
-            "حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى."
-          );
+          setError("حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى.");
         }
       }
     } finally {
@@ -206,16 +206,26 @@ function SignUpPage({ onNavigate }: SignUpPageProps) {
               <input
                 id="signup-password"
                 name="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 required
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pr-10 pl-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                className="w-full pr-12 pl-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="••••••••"
                 minLength={6}
               />
-              <Lock className="absolute right-3 top-3.5 w-5 h-5 text-gray-400" />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                {showPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Lock className="w-5 h-5" />
+                )}
+              </button>
             </div>
           </div>
 
@@ -230,16 +240,26 @@ function SignUpPage({ onNavigate }: SignUpPageProps) {
               <input
                 id="signup-confirm-password"
                 name="confirmPassword"
-                type="password"
+                type={showConfirmPassword ? "text" : "password"}
                 required
                 autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full pr-10 pl-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                className="w-full pr-12 pl-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="••••••••"
                 minLength={6}
               />
-              <Lock className="absolute right-3 top-3.5 w-5 h-5 text-gray-400" />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Lock className="w-5 h-5" />
+                )}
+              </button>
             </div>
           </div>
 

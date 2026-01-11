@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Upload, Send, CheckCircle } from "lucide-react";
+import { Upload, Send, CheckCircle, X } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { uploadToCloudinary } from "../lib/cloudinary";
 import { useAuth } from "../contexts/AuthContext";
 import { useNotifications as useBrowserNotifications } from "../components/NotificationManager";
 import { useNotifications as useDbNotifications } from "../hooks/useNotifications";
@@ -11,7 +12,7 @@ interface AddSummaryPageProps {
 }
 
 function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
-  const { displayName } = useAuth();
+  const { user, displayName } = useAuth();
   const { sendNotification } = useBrowserNotifications();
   const { notifyAdmins } = useDbNotifications();
   const [formData, setFormData] = useState({
@@ -23,6 +24,7 @@ function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
   });
 
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -33,65 +35,123 @@ function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
     setError("");
 
     try {
-      let pdfUrl = null;
+      let cloudinaryResult = null;
+      const uploadedImageUrls: string[] = [];
 
       if (pdfFile) {
-        // احتفظ باسم الملف الأصلي مع إضافة timestamp لتجنب التعارض
-        const originalName = pdfFile.name.replace(/[^a-zA-Z0-9.-]/g, "_"); // استبدال الرموز الخاصة
-        const timestamp = Date.now();
-        const filePath = `${timestamp}_${originalName}`;
+        // رفع الملف إلى Cloudinary مع البيانات الوصفية
+        cloudinaryResult = await uploadToCloudinary(pdfFile, {
+          folder: "masarx-summaries",
+          tags: [formData.subject, formData.year, formData.department],
+          context: {
+            contributor: displayName || "مجهول",
+            title: formData.title,
+            subject: formData.subject,
+            year: formData.year,
+            department: formData.department,
+            content: formData.content,
+          },
+        });
 
-        const { error: uploadError } = await supabase.storage
-          .from("summaries-pdfs")
-          .upload(filePath, pdfFile);
-
-        if (uploadError) throw uploadError;
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("summaries-pdfs").getPublicUrl(filePath);
-
-        pdfUrl = publicUrl;
+        console.log("File uploaded to Cloudinary:", cloudinaryResult.public_id);
       }
 
-      const summaryData: SummaryInsert = {
-        title: formData.title,
-        subject: formData.subject,
-        year: formData.year,
-        department: formData.department,
-        content: formData.content,
-        contributor_name: displayName || null,
-        pdf_url: pdfUrl,
-        status: "pending",
-      };
+      // رفع الصور إلى Cloudinary
+      if (imageFiles.length > 0) {
+        for (const imageFile of imageFiles) {
+          try {
+            const imageResult = await uploadToCloudinary(imageFile, {
+              folder: "masarx-summary-images",
+              tags: [
+                formData.subject,
+                formData.year,
+                formData.department,
+                "summary-image",
+              ],
+              context: {
+                contributor: displayName || "مجهول",
+                title: formData.title,
+                subject: formData.subject,
+                year: formData.year,
+                department: formData.department,
+              },
+            });
+            uploadedImageUrls.push(imageResult.secure_url);
+            console.log("Image uploaded to Cloudinary:", imageResult.public_id);
+          } catch (imgError) {
+            console.error("Error uploading image:", imgError);
+            // Continue with other images even if one fails
+          }
+        }
+      }
 
-      const { data: insertedData, error: insertError } = await supabase
-        .from("summaries")
-        .insert(summaryData)
-        .select()
-        .single();
+      // إذا تم رفع ملف، سيتم إنشاء السجل تلقائيًا عبر الـ webhook
+      // إذا لم يتم رفع ملف، نحتاج لإنشاء السجل يدويًا
+      let insertedData = null;
 
-      if (insertError) throw insertError;
+      if (!pdfFile) {
+        // إنشاء ملخص بدون ملف
+        const summaryData: SummaryInsert = {
+          title: formData.title,
+          subject: formData.subject,
+          year: formData.year,
+          department: formData.department,
+          content:
+            uploadedImageUrls.length > 0
+              ? `${formData.content}\n\n[IMAGES:${JSON.stringify(
+                  uploadedImageUrls
+                )}]`
+              : formData.content,
+          contributor_name: displayName || null,
+          pdf_url: null,
+          status: "pending",
+          user_id: user?.id || "",
+        };
+
+        const { data, error: insertError } = await supabase
+          .from("summaries")
+          .insert(summaryData)
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        insertedData = data;
+
+        // إرسال إشعار للمدراء
+        notifyAdmins(
+          "ملخص جديد يحتاج مراجعة",
+          `تم إرسال ملخص "${formData.title}" بواسطة ${displayName || "مجهول"}`,
+          "admin_submission",
+          data.id,
+          "summary"
+        );
+      }
 
       setSuccess(true);
 
       // إرسال إشعار نجاح الإضافة للمستخدم
+      const notificationMessage = pdfFile
+        ? `ملخص "${formData.title}" تم رفعه وسيتم مراجعته قريباً`
+        : `ملخص "${formData.title}" تم إرساله وسيتم مراجعته قريباً`;
+
       sendNotification("تم إرسال الملخص بنجاح!", {
-        body: `ملخص "${formData.title}" تم إرساله وسيتم مراجعته قريباً`,
+        body: notificationMessage,
         icon: "/logo_1.png",
         tag: "summary-submitted",
       });
 
-      // إرسال إشعار للمدراء
-      notifyAdmins(
-        "ملخص جديد يحتاج مراجعة",
-        `تم إرسال ملخص جديد بعنوان "${formData.title}" في مادة ${
-          formData.subject
-        } بواسطة ${displayName || "مستخدم"}`,
-        "admin_submission",
-        insertedData.id,
-        "summary"
-      );
+      // إشعار المدراء يتم إرساله إما عبر الـ webhook (للملفات) أو هنا (للملخصات النصية)
+      if (!pdfFile && insertedData) {
+        notifyAdmins(
+          "ملخص جديد يحتاج مراجعة",
+          `تم إرسال ملخص "${formData.title}" في مادة ${
+            formData.subject
+          } بواسطة ${displayName || "مستخدم"}`,
+          "admin_submission",
+          insertedData.id,
+          "summary"
+        );
+      }
 
       setFormData({
         title: "",
@@ -101,6 +161,7 @@ function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
         content: "",
       });
       setPdfFile(null);
+      setImageFiles([]);
 
       setTimeout(() => {
         onNavigate("home");
@@ -122,6 +183,34 @@ function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
       setError("يرجى اختيار ملف PDF فقط");
       setPdfFile(null);
     }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const validImages = files.filter((file) => {
+      const validTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+      ];
+      return validTypes.includes(file.type);
+    });
+
+    if (validImages.length !== files.length) {
+      setError(
+        "بعض الملفات المختارة ليست صور صالحة (JPEG, PNG, GIF, WebP فقط)"
+      );
+    } else {
+      setError("");
+    }
+
+    setImageFiles(validImages);
+  };
+
+  const removeImage = (index: number) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   if (success) {
@@ -314,6 +403,68 @@ function AddSummaryPage({ onNavigate }: AddSummaryPageProps) {
                 />
               </label>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              رفع صور (اختياري)
+            </label>
+            <div className="flex items-center justify-center w-full">
+              <label
+                htmlFor="summary-images-upload"
+                className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <Upload className="w-8 h-8 text-gray-500 dark:text-gray-400 mb-2" />
+                  {imageFiles.length > 0 ? (
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      تم اختيار {imageFiles.length} صورة
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                        <span className="font-semibold">اضغط لرفع الصور</span>
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500">
+                        JPEG, PNG, GIF, WebP (حتى 5MB لكل صورة)
+                      </p>
+                    </>
+                  )}
+                </div>
+                <input
+                  id="summary-images-upload"
+                  name="summaryImagesUpload"
+                  type="file"
+                  className="hidden"
+                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                  multiple
+                  onChange={handleImageChange}
+                />
+              </label>
+            </div>
+
+            {/* عرض الصور المختارة */}
+            {imageFiles.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {imageFiles.map((file, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt={`Preview ${index + 1}`}
+                      className="w-full h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="إزالة الصورة"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {displayName && (

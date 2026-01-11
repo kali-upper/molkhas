@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Bell } from "lucide-react";
 import { useNotifications } from "../hooks/useNotifications";
 import { NotificationHeader } from "./NotificationHeader";
@@ -10,7 +10,7 @@ import {
 } from "../constants/notifications";
 import type { Notification } from "../types/database";
 
-export function NotificationDropdown() {
+export const NotificationDropdown = React.memo(function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -140,4 +140,4 @@ export function NotificationDropdown() {
       )}
     </div>
   );
-}
+});

@@ -88,7 +88,7 @@ export function PWAInstallPrompt() {
                 تثبيت التطبيق
               </h3>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                قم بتثبيت Molkhas كتطبيق على هاتفك للوصول السريع
+                قم بتثبيت Masar X كتطبيق على هاتفك للوصول السريع
               </p>
             </div>
           </div>

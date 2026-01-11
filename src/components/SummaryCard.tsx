@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Download, Eye } from "lucide-react";
+import { Download, Eye, Edit } from "lucide-react";
 import { useAnalytics } from "../hooks/useAnalytics";
 
 interface SummaryCardProps {
@@ -13,6 +13,8 @@ interface SummaryCardProps {
   };
   downloadUrl?: string;
   onDownload?: () => void;
+  onEdit?: () => void;
+  canEdit?: boolean;
   className?: string;
 }
 
@@ -23,6 +25,8 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
   examInfo,
   downloadUrl,
   onDownload,
+  onEdit,
+  canEdit = false,
   className = "",
 }) => {
   const { trackSummaryView, trackSummaryClick } = useAnalytics();
@@ -75,6 +79,12 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
     await trackSummaryClick(id, "view");
   };
 
+  const handleEditClick = () => {
+    if (onEdit) {
+      onEdit();
+    }
+  };
+
   return (
     <div
       id={`summary-card-${id}`}
@@ -82,7 +92,18 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            {canEdit && (
+              <button
+                onClick={handleEditClick}
+                className="text-blue-600 hover:text-blue-800 p-1 rounded"
+                title="تعديل الملخص"
+              >
+                <Edit size={16} />
+              </button>
+            )}
+          </div>
 
           {description && (
             <p className="text-gray-600 text-sm mb-3">{description}</p>

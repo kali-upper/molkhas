@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useAnalytics } from "../hooks/useAnalytics";
 import { Summary } from "../types/database";
 import { AppealFormModal } from "../components/AppealFormModal";
 
@@ -21,10 +22,27 @@ interface SummaryDetailPageProps {
 
 function SummaryDetailPage({ summaryId, onNavigate }: SummaryDetailPageProps) {
   const { user, isAdmin } = useAuth();
+  const { trackSummaryView } = useAnalytics();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showAppealForm, setShowAppealForm] = useState(false);
+  const [summaryImages, setSummaryImages] = useState<string[]>([]);
+  const [cleanContent, setCleanContent] = useState("");
+
+  const extractImagesFromContent = (content: string) => {
+    const imagesMatch = content.match(/\[IMAGES:(\[.*?\])\]/);
+    if (imagesMatch) {
+      try {
+        const images = JSON.parse(imagesMatch[1]);
+        const cleanContent = content.replace(/\[IMAGES:(\[.*?\])\]/, "").trim();
+        return { images, cleanContent };
+      } catch (e) {
+        return { images: [], cleanContent: content };
+      }
+    }
+    return { images: [], cleanContent: content };
+  };
 
   useEffect(() => {
     fetchSummary();
@@ -47,6 +65,18 @@ function SummaryDetailPage({ summaryId, onNavigate }: SummaryDetailPageProps) {
       }
 
       setSummary(data);
+
+      // Track summary view
+      trackSummaryView(data.id, {
+        subject: data.subject,
+        year: data.year,
+        department: data.department,
+      });
+
+      // Extract images from content
+      const { images, cleanContent } = extractImagesFromContent(data.content);
+      setSummaryImages(images);
+      setCleanContent(cleanContent);
     } catch (err) {
       console.error("Error fetching summary:", err);
       setError("حدث خطأ أثناء تحميل الملخص");
@@ -99,7 +129,9 @@ function SummaryDetailPage({ summaryId, onNavigate }: SummaryDetailPageProps) {
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors">
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 px-6 sm:px-8 py-6 text-white">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-4">{summary.title}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-4">
+            {summary.title}
+          </h1>
 
           <div className="flex flex-wrap gap-4 text-sm">
             <div className="flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-lg">
@@ -158,8 +190,34 @@ function SummaryDetailPage({ summaryId, onNavigate }: SummaryDetailPageProps) {
               محتوى الملخص
             </h2>
             <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
-              {summary.content}
+              {cleanContent}
             </div>
+
+            {/* عرض الصور إذا كانت موجودة */}
+            {summaryImages.length > 0 && (
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  الصور المرفقة
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {summaryImages.map((imageUrl, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={imageUrl}
+                        alt={`صورة ${index + 1}`}
+                        className="w-full h-48 object-cover rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => window.open(imageUrl, "_blank")}
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity rounded-lg flex items-center justify-center">
+                        <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-sm">
+                          اضغط للتكبير
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -180,7 +238,7 @@ function SummaryDetailPage({ summaryId, onNavigate }: SummaryDetailPageProps) {
                 <span>الطعن في المحتوى</span>
               </button>
             </div>
-            
+
             {/* Edit Button for Owner or Admin */}
             {(isAdmin || (user && user.id === summary.user_id)) && (
               <div className="mt-4 flex justify-end">

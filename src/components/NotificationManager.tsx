@@ -107,10 +107,10 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     if (!isSupported || permission !== "granted") return;
 
     const defaultOptions: NotificationOptions = {
-      body: "إشعار جديد من Molkhas",
+      body: "إشعار جديد من Masar X",
       icon: "/logo_1.png",
       badge: "/logo_1.png",
-      tag: "molkhas-notification",
+      tag: "masarx-notification",
       requireInteraction: false,
       ...options,
     };
@@ -280,7 +280,7 @@ export function NotificationToggle() {
         console.log("Sending test notification...");
         // اختبار الإشعارات
         sendNotification("اختبار الإشعارات", {
-          body: "هذا إشعار تجريبي من Molkhas",
+          body: "هذا إشعار تجريبي من Masar X",
           tag: "test-notification",
         });
         console.log("Test notification sent");

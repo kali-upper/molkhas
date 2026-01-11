@@ -10,21 +10,23 @@ import {
   User,
   Menu,
   X,
+  GraduationCap,
 } from "lucide-react";
-import { useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { NotificationDropdown } from "./NotificationDropdown";
 
-export function Header() {
+export const Header = React.memo(function Header() {
   const { user, isAdmin, isAdminLoading, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const currentPage = location.pathname === "/" ? "home" : location.pathname.substring(1);
+  const currentPage =
+    location.pathname === "/" ? "home" : location.pathname.substring(1);
 
   const handleSignOut = async () => {
     try {
@@ -50,7 +52,7 @@ export function Header() {
             className="flex items-center gap-1 sm:gap-2 text-lg sm:text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors min-w-0"
           >
             <BookOpen className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-            <span className="truncate">Molkhas</span>
+            <span className="truncate">Masar X</span>
           </button>
 
           {/* Navigation Bar */}
@@ -77,6 +79,18 @@ export function Header() {
                 }`}
               >
                 الأخبار
+              </button>
+
+              <button
+                onClick={() => handleNavigate("subjects")}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  currentPage === "subjects"
+                    ? "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                <GraduationCap className="w-4 h-4" />
+                المواد
               </button>
 
               <button
@@ -237,6 +251,18 @@ export function Header() {
                   </button>
 
                   <button
+                    onClick={() => handleNavigate("subjects")}
+                    className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-lg text-sm sm:text-base font-medium transition-colors text-right touch-manipulation ${
+                      currentPage === "subjects"
+                        ? "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    <span>📚</span>
+                    <span>المواد</span>
+                  </button>
+
+                  <button
                     onClick={() => handleNavigate("ai-assistant-upload")}
                     className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-lg text-sm sm:text-base font-medium transition-colors text-right touch-manipulation ${
                       currentPage === "ai-assistant-upload" ||
@@ -325,4 +351,4 @@ export function Header() {
       </div>
     </header>
   );
-}
+});

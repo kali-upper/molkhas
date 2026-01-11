@@ -7,13 +7,16 @@ import {
   SortDesc,
   ChevronLeft,
   ChevronRight,
+  Edit,
 } from "lucide-react";
 import { Summary } from "../types/database";
+import { useAuth } from "../contexts/AuthContext";
 
 interface SummariesTabProps {
   summaries: Summary[];
   onUpdateStatus: (id: string, status: "approved" | "rejected") => void;
   onDeleteSummary: (id: string) => void;
+  onEditSummary?: (summary: Summary) => void;
   onClearAllSummaries: () => void;
 }
 
@@ -21,8 +24,10 @@ export function SummariesTab({
   summaries,
   onUpdateStatus,
   onDeleteSummary,
+  onEditSummary,
   onClearAllSummaries,
 }: SummariesTabProps) {
+  const { user, isAdmin } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<
     "all" | "pending" | "approved" | "rejected"
@@ -213,7 +218,11 @@ export function SummariesTab({
             </p>
           </div>
         ) : (
-          currentSummaries.map((summary) => (
+          currentSummaries.map((summary) => {
+            const canEdit = user && (isAdmin || summary.user_id === user.id);
+            const canDelete = user && (isAdmin || summary.user_id === user.id);
+
+            return (
             <div
               key={summary.id}
               className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 transition-colors"
@@ -224,6 +233,15 @@ export function SummariesTab({
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                       ملخص للموضوع: {summary.title}
                     </h3>
+                    {canEdit && onEditSummary && (
+                      <button
+                        onClick={() => onEditSummary(summary)}
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1 rounded"
+                        title="تعديل الملخص"
+                      >
+                        <Edit size={16} />
+                      </button>
+                    )}
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${
                         summary.status === "pending"
@@ -253,24 +271,30 @@ export function SummariesTab({
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:gap-2 ml-0 sm:ml-4">
-                  <button
-                    onClick={() => onUpdateStatus(summary.id, "approved")}
-                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    اعتماد
-                  </button>
-                  <button
-                    onClick={() => onUpdateStatus(summary.id, "rejected")}
-                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    رفض
-                  </button>
-                  <button
-                    onClick={() => onDeleteSummary(summary.id)}
-                    className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    حذف
-                  </button>
+                  {isAdmin && (
+                    <>
+                      <button
+                        onClick={() => onUpdateStatus(summary.id, "approved")}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        اعتماد
+                      </button>
+                      <button
+                        onClick={() => onUpdateStatus(summary.id, "rejected")}
+                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        رفض
+                      </button>
+                    </>
+                  )}
+                  {canDelete && (
+                    <button
+                      onClick={() => onDeleteSummary(summary.id)}
+                      className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      حذف
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -278,7 +302,8 @@ export function SummariesTab({
                 {new Date(summary.created_at).toLocaleDateString("ar-SA")}
               </div>
             </div>
-          ))
+            );
+          })
         )}
 
         {/* Pagination */}

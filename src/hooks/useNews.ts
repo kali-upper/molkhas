@@ -29,7 +29,6 @@ export function useNews() {
     } catch (error) {
       console.error("Error fetching news:", error);
     } finally {
-      console.log("useNews: fetch finished");
       setLoading(false);
     }
   }, []); // Empty dependency array means this function is stable

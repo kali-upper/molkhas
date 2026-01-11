@@ -1,22 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { User, Mail, Shield, Edit3, Save, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { NotificationSettings } from "../components/NotificationManager";
+import { AdminProfileImage } from "../components/AdminProfileImage";
 
 interface ProfilePageProps {
   onNavigate: (page: string) => void;
 }
 
 function ProfilePage({ onNavigate }: ProfilePageProps) {
-  const { user, displayName, isAdmin, updateDisplayName, refreshAdminStatus } = useAuth();
+  const { user, displayName, isAdmin, updateDisplayName } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState(displayName || "");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Force refresh admin status when visiting profile
-  useEffect(() => {
-    refreshAdminStatus();
-  }, []);
+  // Note: Admin status is now cached and doesn't need refresh on every visit
 
   const handleSaveDisplayName = async () => {
     if (!newDisplayName.trim() || newDisplayName.trim() === displayName) {
@@ -69,13 +67,13 @@ function ProfilePage({ onNavigate }: ProfilePageProps) {
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-8">
           <div className="flex items-center space-x-4">
-            <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center">
-              <User className="w-10 h-10 text-white" />
-            </div>
+            <AdminProfileImage
+              size="xl"
+              className="bg-white/20"
+              editable={true}
+            />
             <div>
-              <h1 className="text-2xl font-bold text-white">
-                مرحباً {displayName}!
-              </h1>
+              <h1 className="text-2xl font-bold text-white">{displayName}</h1>
               <p className="text-blue-100 mt-1">
                 {isAdmin ? "مدير النظام" : "مستخدم"}
               </p>

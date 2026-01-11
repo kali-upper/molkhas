@@ -21,7 +21,7 @@ self.addEventListener('message', (event) => {
       body: body,
       icon: icon || '/logo_1.png',
       badge: '/logo_1.png',
-      tag: tag || 'molkhas-notification',
+      tag: tag || 'masarx-notification',
       requireInteraction: false,
       silent: false,
       actions: [
@@ -84,10 +84,10 @@ self.addEventListener('push', (event) => {
     const data = event.data.json();
 
     const options = {
-      body: data.body || 'إشعار جديد من Molkhas',
+      body: data.body || 'إشعار جديد من Masar X',
       icon: data.icon || '/logo_1.png',
       badge: '/logo_1.png',
-      tag: data.tag || 'molkhas-push',
+      tag: data.tag || 'masarx-push',
       requireInteraction: data.requireInteraction || false,
       data: data.data || {},
       actions: [
@@ -103,7 +103,7 @@ self.addEventListener('push', (event) => {
     };
 
     event.waitUntil(
-      self.registration.showNotification(data.title || 'Molkhas', options)
+      self.registration.showNotification(data.title || 'Masar X', options)
     );
   }
 });

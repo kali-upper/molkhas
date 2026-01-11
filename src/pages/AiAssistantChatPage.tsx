@@ -1,7 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, MessageSquare, Bot, User, Trash2, X } from "lucide-react";
+import { Send, MessageSquare, Bot, User, Trash2, X, Brain } from "lucide-react";
 import { aiAssistant } from "../lib/gemini";
 import { useAnalytics } from "../hooks/useAnalytics";
+import { QuizPlayer } from "../components/QuizPlayer";
+import { quizService } from "../lib/quiz";
+import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../lib/supabase";
+import { getSessionId } from "../lib/session";
 
 interface AiAssistantChatPageProps {
   onNavigate: (page: string) => void;
@@ -15,10 +20,13 @@ interface ChatMessage {
 }
 
 function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
+  const { user } = useAuth();
   const { trackEvent, logError } = useAnalytics();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [activeQuizId, setActiveQuizId] = useState<string | null>(null);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -35,7 +43,7 @@ function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
   // Load messages from localStorage on component mount
   useEffect(() => {
     let savedMessages = localStorage.getItem(CHAT_STORAGE_KEY);
-    
+
     // Fallback to old key if new one doesn't exist
     if (!savedMessages) {
       savedMessages = localStorage.getItem(OLD_CHAT_STORAGE_KEY);
@@ -81,10 +89,10 @@ function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
   useEffect(() => {
     const autoReloadData = async () => {
       if (stats.totalChunks === 0) {
-        console.log("🔄 لا توجد بيانات، جاري تحميل البيانات تلقائياً...");
+        // console.log("🔄 لا توجد بيانات، جاري تحميل البيانات تلقائياً...");
         try {
           await aiAssistant.loadAllData();
-          console.log("✅ تم تحميل البيانات تلقائياً");
+          // console.log("✅ تم تحميل البيانات تلقائياً");
         } catch (error: unknown) {
           console.error("❌ فشل في تحميل البيانات تلقائياً:", error);
         }
@@ -101,6 +109,8 @@ function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
+    const startTime = Date.now();
+
     const userMessage: ChatMessage = {
       id: `user_${Date.now()}`,
       type: "user",
@@ -111,12 +121,10 @@ function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage("");
     setIsLoading(true);
-    trackEvent('ai_question_asked', { length: userMessage.content.length });
+    trackEvent("ai_question_asked", { length: userMessage.content.length });
 
     try {
-      const response = await aiAssistant.generateResponse(
-        userMessage.content
-      );
+      const response = await aiAssistant.generateResponse(userMessage.content);
 
       const assistantMessage: ChatMessage = {
         id: `assistant_${Date.now()}`,
@@ -126,16 +134,35 @@ function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-      trackEvent('ai_response_received', { length: response.length });
+      trackEvent("ai_response_received", { length: response.length });
+
+      // Save to assistant_messages table for analytics
+      try {
+        await supabase.from("assistant_messages").insert({
+          user_id: user?.id,
+          session_id: getSessionId(),
+          user_message: userMessage.content,
+          assistant_response: response,
+          response_time_ms: Date.now() - startTime,
+          ai_model_used: "gemini", // Using Gemini model
+          metadata: {
+            message_length: response.length,
+            has_custom_api_key: aiStatus.hasCustomApiKey,
+          },
+        });
+      } catch (dbError) {
+        console.error("Failed to save assistant message:", dbError);
+      }
     } catch (error: unknown) {
       console.error("Error getting AI response:", error);
-      logError(error instanceof Error ? error : String(error), { message: 'AI generation failed' });
-      trackEvent('ai_error', { type: 'generation_failed' });
+      logError(error instanceof Error ? error : String(error), {
+        message: "AI generation failed",
+      });
+      trackEvent("ai_error", { type: "generation_failed" });
       const errorMessage: ChatMessage = {
         id: `error_${Date.now()}`,
         type: "assistant",
-        content:
-          "عذراً، حدث خطأ أثناء معالجة سؤالك. يرجى المحاولة مرة أخرى.",
+        content: "عذراً، حدث خطأ أثناء معالجة سؤالك. يرجى المحاولة مرة أخرى.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -171,7 +198,7 @@ function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
 
   const reloadData = async () => {
     try {
-      console.log("🔄 إعادة تحميل بيانات المساعد...");
+      // console.log("🔄 إعادة تحميل بيانات المساعد...");
       await aiAssistant.loadAllData();
       alert("✅ تم إعادة تحميل البيانات بنجاح! المعلومات محدثة الآن.");
     } catch (error: unknown) {
@@ -207,7 +234,7 @@ function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
     setShowApiKeyModal(false);
     setApiKeyInput("");
 
-    console.log("✅ تم حفظ مفتاح API فوراً");
+    // console.log("✅ تم حفظ مفتاح API فوراً");
 
     // Validate in background without blocking the user
     validateApiKeyInBackground(trimmedKey);
@@ -215,7 +242,7 @@ function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
 
   const validateApiKeyInBackground = async (apiKey: string) => {
     try {
-      console.log("🔄 جاري التحقق من مفتاح API في الخلفية...");
+      // console.log("🔄 جاري التحقق من مفتاح API في الخلفية...");
 
       // Test the API key with a simple request
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
@@ -230,7 +257,7 @@ function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
       );
       await testResult.response;
 
-      console.log("✅ تم التحقق من صحة مفتاح API بنجاح");
+      // console.log("✅ تم التحقق من صحة مفتاح API بنجاح");
 
       // Update status to show validation was successful
       localStorage.setItem("gemini_api_status", "working");
@@ -267,7 +294,49 @@ function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
   const clearApiKey = () => {
     localStorage.removeItem("user_gemini_api_key");
     aiAssistant.reinitializeGemini();
-    console.log("تم مسح مفتاح API المخصص والرجوع للمفتاح الافتراضي");
+    // console.log("تم مسح مفتاح API المخصص والرجوع للمفتاح الافتراضي");
+  };
+
+  const handleGenerateQuiz = async () => {
+    if (isGeneratingQuiz) return;
+
+    try {
+      setIsGeneratingQuiz(true);
+      trackEvent("quiz_generation_started");
+
+      // Get all text content from loaded chunks
+      const allText = aiAssistant
+        .getAllChunks()
+        .map((chunk) => chunk.content)
+        .join("\n\n");
+
+      if (!allText.trim()) {
+        alert("لا توجد بيانات كافية لإنشاء اختبار. يرجى تحميل ملفات أولاً.");
+        return;
+      }
+
+      // Generate quiz JSON
+      const quizData = await aiAssistant.generateQuiz(allText);
+
+      // Save to Supabase
+      // Use a temporary user ID if not logged in, or handle in service
+      // For now, we require user to be logged in for saving, or we save with null user_id
+      const quizId = await quizService.saveQuiz(
+        user?.id || "anonymous",
+        quizData
+      );
+
+      setActiveQuizId(quizId);
+      trackEvent("quiz_generated", { quiz_id: quizId });
+    } catch (error) {
+      console.error("Error generating quiz:", error);
+      logError(error instanceof Error ? error : String(error), {
+        message: "Quiz generation failed",
+      });
+      alert("حدث خطأ أثناء إنشاء الاختبار. يرجى المحاولة مرة أخرى.");
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
   };
 
   const openApiKeyModal = () => {
@@ -357,7 +426,9 @@ function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
               className="p-2 text-blue-600 hover:text-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
               title="Set custom API key"
             >
-              <span className="hidden sm:inline text-sm font-medium">API Key</span>
+              <span className="hidden sm:inline text-sm font-medium">
+                API Key
+              </span>
               <span className="sm:hidden">🔑</span>
             </button>
             <button
@@ -365,15 +436,36 @@ function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
               className="p-2 text-blue-600 hover:text-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
               title="Reload latest data from GitHub"
             >
-              <span className="hidden sm:inline text-sm font-medium">Reload</span>
+              <span className="hidden sm:inline text-sm font-medium">
+                Reload
+              </span>
               <span className="sm:hidden">🔄</span>
+            </button>
+            <button
+              onClick={handleGenerateQuiz}
+              disabled={isGeneratingQuiz || !hasChatData}
+              className={`p-2 text-purple-600 hover:text-purple-800 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors ${
+                isGeneratingQuiz ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+              title="Generate AI Quiz"
+            >
+              <span className="hidden sm:inline text-sm font-medium">
+                {isGeneratingQuiz ? "Generating..." : "Quiz"}
+              </span>
+              <Brain
+                className={`w-5 h-5 sm:hidden ${
+                  isGeneratingQuiz ? "animate-pulse" : ""
+                }`}
+              />
             </button>
             <button
               onClick={clearData}
               className="p-2 text-red-600 hover:text-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
               title="Clear all data and upload new chat"
             >
-              <span className="hidden sm:inline text-sm font-medium">Reset</span>
+              <span className="hidden sm:inline text-sm font-medium">
+                Reset
+              </span>
               <span className="sm:hidden">❌</span>
             </button>
           </div>
@@ -398,8 +490,8 @@ function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
                   (بدون تخمين أو مصادر خارجية).
                 </p>
                 <p className="text-xs text-blue-800 bg-blue-100 dark:bg-blue-900 dark:text-blue-300 rounded p-2 inline-block mb-2">
-                  تنويه: إجابات المساعد تعتمد على البيانات المتوفرة — كلما
-                  كانت البيانات أوضح كلما أصبحت الإجابات أدق.
+                  تنويه: إجابات المساعد تعتمد على البيانات المتوفرة — كلما كانت
+                  البيانات أوضح كلما أصبحت الإجابات أدق.
                 </p>
                 <p className="text-xs text-gray-400">
                   (المساعد لا يجيد المزاح أو الهزار ، ويتجنب الرسائل العشوائية
@@ -624,6 +716,17 @@ function AiAssistantChatPage({ onNavigate }: AiAssistantChatPageProps) {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Quiz Modal */}
+      {activeQuizId && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <QuizPlayer
+              quizId={activeQuizId}
+              onClose={() => setActiveQuizId(null)}
+            />
           </div>
         </div>
       )}

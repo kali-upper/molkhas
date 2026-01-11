@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
-import { Summary } from "../types/database";
+import { Summary, SummaryUpdate } from "../types/database";
 
 export function useSummaries() {
   const [summaries, setSummaries] = useState<Summary[]>([]);
@@ -19,7 +19,6 @@ export function useSummaries() {
     } catch (error) {
       console.error("Error fetching summaries:", error);
     } finally {
-      console.log("useSummaries: fetch finished");
       setLoading(false);
     }
   }, []);
@@ -36,6 +35,31 @@ export function useSummaries() {
     } catch (error) {
       console.error("Error updating summary status:", error);
     }
+  };
+
+  const editSummary = async (id: string, updates: Partial<SummaryUpdate>) => {
+    try {
+      const { error } = await supabase
+        .from("summaries")
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq("id", id);
+
+      if (error) throw error;
+      await fetchSummaries();
+    } catch (error) {
+      console.error("Error editing summary:", error);
+      throw error;
+    }
+  };
+
+  const canEditSummary = (summary: Summary, currentUserId: string | undefined, isAdmin: boolean) => {
+    if (!currentUserId) return false;
+    return isAdmin || summary.user_id === currentUserId;
+  };
+
+  const canDeleteSummary = (summary: Summary, currentUserId: string | undefined, isAdmin: boolean) => {
+    if (!currentUserId) return false;
+    return isAdmin || summary.user_id === currentUserId;
   };
 
   const deleteSummary = async (id: string) => {
@@ -75,6 +99,9 @@ export function useSummaries() {
     loading,
     fetchSummaries,
     updateStatus,
+    editSummary,
+    canEditSummary,
+    canDeleteSummary,
     deleteSummary,
     clearAllSummaries,
   };

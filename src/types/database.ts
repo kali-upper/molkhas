@@ -265,6 +265,122 @@ export type Database = {
           updated_at?: string
         }
       }
+      quizzes: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          user_id: string | null
+          source_type: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          user_id?: string | null
+          source_type?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          user_id?: string | null
+          source_type?: string
+          created_at?: string
+        }
+      }
+      quiz_questions: {
+        Row: {
+          id: string
+          quiz_id: string
+          question: string
+          options: string[]
+          correct_answer: number
+          explanation: string | null
+          order_index: number
+        }
+        Insert: {
+          id?: string
+          quiz_id: string
+          question: string
+          options: string[]
+          correct_answer: number
+          explanation?: string | null
+          order_index?: number
+        }
+        Update: {
+          id?: string
+          quiz_id?: string
+          question?: string
+          options?: string[]
+          correct_answer?: number
+          explanation?: string | null
+          order_index?: number
+        }
+      }
+      quiz_attempts: {
+        Row: {
+          id: string
+          quiz_id: string
+          user_id: string | null
+          score: number
+          total_questions: number
+          answers: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          quiz_id: string
+          user_id?: string | null
+          score: number
+          total_questions: number
+          answers?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          quiz_id?: string
+          user_id?: string | null
+          score?: number
+          total_questions?: number
+          answers?: Json
+          created_at?: string
+        }
+      }
+      password_reset_tokens: {
+        Row: {
+          id: string
+          user_id: string
+          email: string
+          token: string
+          expires_at: string
+          used_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          email: string
+          token: string
+          expires_at: string
+          used_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          email?: string
+          token?: string
+          expires_at?: string
+          used_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -312,6 +428,22 @@ export type ChatParticipantUpdate = Database['public']['Tables']['chat_participa
 export type AISummary = Database['public']['Tables']['ai_summaries']['Row'];
 export type AISummaryInsert = Database['public']['Tables']['ai_summaries']['Insert'];
 export type AISummaryUpdate = Database['public']['Tables']['ai_summaries']['Update'];
+
+export type Quiz = Database['public']['Tables']['quizzes']['Row'];
+export type QuizInsert = Database['public']['Tables']['quizzes']['Insert'];
+export type QuizUpdate = Database['public']['Tables']['quizzes']['Update'];
+
+export type QuizQuestion = Database['public']['Tables']['quiz_questions']['Row'];
+export type QuizQuestionInsert = Database['public']['Tables']['quiz_questions']['Insert'];
+export type QuizQuestionUpdate = Database['public']['Tables']['quiz_questions']['Update'];
+
+export type QuizAttempt = Database['public']['Tables']['quiz_attempts']['Row'];
+export type QuizAttemptInsert = Database['public']['Tables']['quiz_attempts']['Insert'];
+export type QuizAttemptUpdate = Database['public']['Tables']['quiz_attempts']['Update'];
+
+export type PasswordResetToken = Database['public']['Tables']['password_reset_tokens']['Row'];
+export type PasswordResetTokenInsert = Database['public']['Tables']['password_reset_tokens']['Insert'];
+export type PasswordResetTokenUpdate = Database['public']['Tables']['password_reset_tokens']['Update'];
 
 // Additional types for chat functionality
 export interface MessageWithSender extends Message {

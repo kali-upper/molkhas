@@ -318,13 +318,54 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { query, relevantChunks, userId } = await req.json()
+    const { query, relevantChunks, userId, courseId } = await req.json()
 
     if (!query || !relevantChunks) {
       return new Response(JSON.stringify({ error: 'Missing required fields: query and relevantChunks' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       })
+    }
+
+    // Check course enrollment if courseId is provided
+    if (courseId && userId) {
+      try {
+        const { data: enrollment, error: enrollmentError } = await supabase
+          .from('enrollments')
+          .select('status')
+          .eq('student_id', userId)
+          .eq('course_id', courseId)
+          .eq('status', 'active')
+          .limit(1)
+          .single()
+
+        if (enrollmentError || !enrollment) {
+          return new Response(JSON.stringify({
+            error: 'Access denied',
+            message: 'يجب أن تكون مشتركاً في هذا الكورس لاستخدام المساعد الذكي. يرجى الاشتراك أولاً.',
+            requiresEnrollment: true
+          }), {
+            status: 403,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
+          })
+        }
+      } catch (error) {
+        console.error('Enrollment check error:', error)
+        return new Response(JSON.stringify({
+          error: 'Access denied',
+          message: 'حدث خطأ في التحقق من الاشتراك. يرجى المحاولة مرة أخرى.',
+          requiresEnrollment: true
+        }), {
+          status: 403,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
+        })
+      }
     }
 
     const response = await generateAIResponse(query, relevantChunks, userId)

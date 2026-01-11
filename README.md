@@ -1,4 +1,4 @@
-# Molkhas - Study Summaries Platform
+# Masar X - Study Summaries Platform
 
 A clean, simple crowdsourced web platform for university students to share, view, and organize study summaries and academic information.
 

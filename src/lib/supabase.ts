@@ -5,7 +5,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Environment variables loaded successfully
-console.log('🔧 Supabase initialized successfully');
+// Supabase initialized successfully
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
@@ -57,6 +57,10 @@ interface ChatHelpers {
   saveAssistantMessage(data: AssistantMessageData): Promise<void>;
   getAdminAnalyticsSummary(): Promise<any>;
   getAssistantMessages(userId?: string, limit?: number): Promise<any>;
+  generateResetToken(): string;
+  createPasswordResetToken(email: string): Promise<{ success: boolean; error?: string; token?: string }>;
+  verifyPasswordResetToken(token: string): Promise<{ valid: boolean; userId?: string; email?: string; error?: string }>;
+  markTokenAsUsed(token: string): Promise<boolean>;
 }
 
 // Chat-related helper functions
@@ -448,6 +452,159 @@ export const chatHelpers: ChatHelpers = {
     }
 
     return null;
+  },
+
+  // Generate secure password reset token
+  generateResetToken(): string {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  },
+
+  // Create password reset token for user
+  async createPasswordResetToken(email: string): Promise<{ success: boolean; error?: string; token?: string }> {
+    try {
+      // Find user by email from profiles table
+      const { data: userFromProfiles, error: userFromProfilesError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', email.toLowerCase())
+        .single();
+
+      let user: { id: string; email: string | undefined; } | null = userFromProfiles;
+      let userError: any = userFromProfilesError;
+
+      if (userError || !user) {
+        // If not found in profiles, try auth.users table as fallback
+        const { data: authUser, error: authError } = await supabase.auth.admin.getUserByEmail(email);
+        if (authError || !authUser.user) {
+          return { success: false, error: 'البريد الإلكتروني غير مسجل في النظام' };
+        }
+
+        // Check if user exists in profiles, if not create a basic profile
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', authUser.user.id)
+          .single();
+
+        if (!existingProfile) {
+          // Create basic profile
+          await supabase.from('profiles').insert({
+            id: authUser.user.id,
+            email: authUser.user.email,
+            username: authUser.user.email?.split('@')[0] || 'user'
+          });
+        }
+
+        // Use auth user data for consistency
+        user = { id: authUser.user.id, email: authUser.user.email };
+      }
+
+      if (!user?.id) {
+        return { success: false, error: 'لم يتم العثور على معرّف المستخدم' };
+      }
+
+      // Generate token and expiry (24 hours from now)
+      const token = this.generateResetToken();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      // Clean up any existing tokens for this user
+      await supabase
+        .from('password_reset_tokens')
+        .delete()
+        .eq('user_id', user.id);
+
+      // Insert new token
+      const { error: insertError } = await supabase
+        .from('password_reset_tokens')
+        .insert({
+          user_id: user.id,
+          email: email.toLowerCase(),
+          token,
+          expires_at: expiresAt.toISOString()
+        });
+
+      if (insertError) {
+        console.error('Error creating reset token:', insertError);
+        return { success: false, error: 'فشل في إنشاء رمز إعادة التعيين' };
+      }
+
+      return { success: true, token };
+    } catch (error: any) {
+      console.error('Error in createPasswordResetToken:', error);
+      return { success: false, error: error.message || 'حدث خطأ غير متوقع' };
+    }
+  },
+
+  // Verify password reset token
+  async verifyPasswordResetToken(token: string): Promise<{ valid: boolean; userId?: string; email?: string; error?: string }> {
+    try {
+      // Clean token - remove any trailing :number (React dev artifact)
+      const cleanToken = token.replace(/:\d+$/, '');
+
+
+      // Now try the specific token
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/password_reset_tokens?token=eq.${encodeURIComponent(cleanToken)}&select=token,email,expires_at,used_at`,
+        {
+          headers: {
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+
+      if (!response.ok) {
+        console.log('❌ Token query failed');
+        const errorText = await response.text();
+        console.log('❌ Token query error:', errorText);
+        return { valid: false, error: 'رمز إعادة التعيين غير صالح' };
+      }
+
+      const data = await response.json();
+      console.log('📊 Token query response data:', data);
+
+      if (!data || data.length === 0) {
+        return { valid: false, error: 'رمز إعادة التعيين غير صالح' };
+      }
+
+      const tokenData = data[0];
+
+      // Check if token is used or expired
+      if (tokenData.used_at) {
+        return { valid: false, error: 'تم استخدام رمز إعادة التعيين مسبقاً' };
+      }
+
+      if (new Date(tokenData.expires_at) < new Date()) {
+        return { valid: false, error: 'انتهت صلاحية رمز إعادة التعيين' };
+      }
+
+      return { valid: true, userId: undefined, email: tokenData.email };
+    } catch (error) {
+      console.error('Error verifying reset token:', error);
+      return { valid: false, error: 'حدث خطأ في التحقق من الرمز' };
+    }
+  },
+
+  // Mark token as used
+  async markTokenAsUsed(token: string): Promise<boolean> {
+    try {
+      // Clean token - remove any trailing :number (React dev artifact)
+      const cleanToken = token.replace(/:\d+$/, '');
+
+      const { error } = await supabase
+        .from('password_reset_tokens')
+        .update({ used_at: new Date().toISOString() })
+        .eq('token', cleanToken);
+
+      return !error;
+    } catch (error) {
+      console.error('Error marking token as used:', error);
+      return false;
+    }
   },
 };
 

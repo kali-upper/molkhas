@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 
-const SESSION_STORAGE_KEY = 'molkhas_session_id';
+const SESSION_STORAGE_KEY = 'masarx_session_id';
 
 /**
  * Retrieves the current session ID or generates a new one if it doesn't exist.

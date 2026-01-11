@@ -19,19 +19,52 @@ export interface SystemLog {
 
 class AnalyticsService {
     /**
-     * Tracks a generic event (e.g., "Ai_Assistant_Used", "Feature_Clicked").
-     * Uses a random session ID and does NOT track personal user info.
+     * Tracks a generic event (e.g., "summary_view", "summary_click").
+     * Uses user_id for admin analytics and does NOT track personal user info.
      */
     async trackEvent(eventName: string, metadata: Record<string, any> = {}) {
         try {
-            const sessionId = getSessionId();
-            const page = window.location.pathname;
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return; // Don't track for non-authenticated users
 
-            const { error } = await supabase.from('analytics_events').insert({
-                session_id: sessionId,
-                event_name: eventName,
-                page: page,
-                metadata: metadata,
+            const page = window.location.pathname;
+            let actionType = eventName;
+            let contentType = metadata.contentType || 'unknown';
+            let contentId = metadata.id || metadata.contentId;
+
+            // Map event names to analytics action types
+            switch (eventName) {
+                case 'summary_view':
+                    actionType = 'content_view';
+                    contentType = 'summary';
+                    break;
+                case 'summary_click':
+                    actionType = 'summary_click';
+                    contentType = 'summary';
+                    break;
+                case 'page_view':
+                    actionType = 'page_view';
+                    contentType = 'page';
+                    break;
+                case 'ai_interaction':
+                    actionType = 'ai_interaction';
+                    contentType = 'ai_response';
+                    break;
+                default:
+                    actionType = 'other';
+                    break;
+            }
+
+            const { error } = await supabase.from('analytics').insert({
+                user_id: user.id,
+                action_type: actionType,
+                content_type: contentType,
+                content_id: contentId,
+                metadata: {
+                    ...metadata,
+                    page: page,
+                    session_id: getSessionId()
+                },
             });
 
             if (error) {
