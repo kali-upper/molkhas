@@ -229,19 +229,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) throw new Error("No user logged in");
 
     try {
-      // Upload to Cloudinary
-      const cloudinaryResult = await uploadToCloudinary(file, {
-        folder: "profile-images",
-        tags: ["avatar", `user-${user.id}`],
+      // Upload via Supabase Edge Function (secure)
+      const result = await uploadToCloudinary(file, {
+        folder: "avatars",
       });
 
-      // Update user metadata in Supabase
-      const { error } = await supabase.auth.updateUser({
-        data: { avatar_url: cloudinaryResult.secure_url },
-      });
-
-      if (error) throw error;
-      setAvatarUrl(cloudinaryResult.secure_url);
+      if (result.success && result.url) {
+        // Update local state - the Edge Function already updated the database
+        setAvatarUrl(result.url);
+      } else {
+        throw new Error("Upload failed");
+      }
     } catch (error) {
       console.error("Error updating avatar:", error);
       throw error;

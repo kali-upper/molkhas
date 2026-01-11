@@ -1,99 +1,112 @@
 /**
- * Cloudinary utility functions for file uploads
+ * Cloudinary utility functions using Supabase Edge Functions
  */
 
 export interface CloudinaryUploadOptions {
   folder?: string
-  tags?: string[]
-  context?: Record<string, any>
 }
 
 export interface CloudinaryUploadResult {
-  public_id: string
+  success: boolean
   url: string
-  secure_url: string
-  format: string
-  width: number
-  height: number
-  bytes: number
-  created_at: string
-  tags: string[]
-  context?: Record<string, any>
+  public_id: string
+  message: string
 }
 
 /**
- * Upload a file to Cloudinary
+ * Upload a file to Cloudinary via Supabase Edge Function
  */
 export const uploadToCloudinary = async (
   file: File,
   options: CloudinaryUploadOptions = {}
 ): Promise<CloudinaryUploadResult> => {
-  const formData = new FormData()
+  // Convert file to base64
+  const base64 = await fileToBase64(file)
 
-  // Get Cloudinary credentials from environment variables
-  const apiKey = import.meta.env.VITE_CLOUDINARY_API_KEY
-  const apiSecret = import.meta.env.VITE_CLOUDINARY_API_SECRET
-  const cloudName = 'de3emq8l3' // Your Cloudinary cloud name
+  // Get Supabase client
+  const { createClient } = await import('@supabase/supabase-js')
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-  if (!apiKey || !apiSecret) {
-    throw new Error('Cloudinary credentials not configured')
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase credentials not configured')
   }
 
-  // Use upload preset (you'll need to create this in Cloudinary dashboard)
-  // Create a preset called 'masarx-uploads' in your Cloudinary dashboard
-  // Settings: unsigned, allow all formats, no transformations
-  const uploadPreset = 'masarx-uploads'
+  const supabase = createClient(supabaseUrl, supabaseKey)
 
-  formData.append('file', file)
-  formData.append('upload_preset', uploadPreset)
-
-  // Add optional parameters
-  if (options.folder) {
-    formData.append('folder', options.folder)
+  // Get current session
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    throw new Error('User not authenticated')
   }
 
-  if (options.tags && options.tags.length > 0) {
-    formData.append('tags', options.tags.join(','))
-  }
-
-  if (options.context) {
-    const contextString = Object.entries(options.context)
-      .map(([key, value]) => `${key}=${value}`)
-      .join('|')
-    formData.append('context', contextString)
-  }
-
-  const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/upload`,
-    {
-      method: 'POST',
-      body: formData
+  // Call Edge Function
+  const { data, error } = await supabase.functions.invoke('upload-avatar', {
+    body: {
+      file: base64,
+      fileName: file.name,
+      contentType: file.type,
+      folder: options.folder || 'avatars'
     }
-  )
+  })
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(`Cloudinary upload failed: ${errorData.error?.message || response.statusText}`)
+  if (error) {
+    throw new Error(`Upload failed: ${error.message}`)
   }
 
-  const result: CloudinaryUploadResult = await response.json()
-  return result
+  if (!data.success) {
+    throw new Error(`Upload failed: ${data.error || 'Unknown error'}`)
+  }
+
+  return data
 }
 
 /**
- * Delete a file from Cloudinary
+ * Convert File to base64 string
+ */
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => {
+      const base64 = reader.result as string
+      // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
+      const base64Data = base64.split(',')[1]
+      resolve(base64Data)
+    }
+    reader.onerror = error => reject(error)
+  })
+}
+
+/**
+ * Delete a file from Cloudinary via Supabase Edge Function
  */
 export const deleteFromCloudinary = async (publicId: string): Promise<void> => {
-  const apiKey = import.meta.env.VITE_CLOUDINARY_API_KEY
-  const apiSecret = import.meta.env.VITE_CLOUDINARY_API_SECRET
+  // Get Supabase client
+  const { createClient } = await import('@supabase/supabase-js')
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-  if (!apiKey || !apiSecret) {
-    throw new Error('Cloudinary credentials not configured')
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase credentials not configured')
   }
 
-  // Note: This would require server-side implementation for security
-  // as it needs the API secret which shouldn't be exposed to the client
-  throw new Error(`Delete operation for ${publicId} should be handled server-side`)
+  const supabase = createClient(supabaseUrl, supabaseKey)
+
+  // Get current session
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    throw new Error('User not authenticated')
+  }
+
+  // Call Edge Function for secure deletion
+  const { error } = await supabase.functions.invoke('delete-avatar', {
+    body: { publicId }
+  })
+
+  if (error) {
+    throw new Error(`Delete failed: ${error.message}`)
+  }
 }
 
 /**
